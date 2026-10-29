@@ -1,0 +1,5 @@
+node_modules
+public/js/
+public/app.css
+# Your day files stay on your machine (set TIMEBLOCK_DIR to keep them elsewhere).
+days/

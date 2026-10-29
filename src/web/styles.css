@@ -1,0 +1,122 @@
+/* Forge themes (themes.css, copied verbatim via atlassian-notes) + the same base look as atlassian-notes. */
+@import "./themes.css";
+
+/* JetBrains Mono (SIL OFL 1.1, public/fonts/OFL.txt), bundled locally from @fontsource-variable/jetbrains-mono 5.3.0. */
+@font-face {
+  font-family: "JetBrains Mono Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url("/fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2-variations"), url("/fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2");
+}
+
+/* Our tweak to forge's Carbon, as in atlassian-notes: slightly rounded corners instead of square. */
+:root:not([data-theme]),
+[data-theme="carbon"] {
+  --r-sm: 3px;
+  --r-md: 4px;
+  --r-lg: 6px;
+}
+
+:root {
+  --font: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --hover: color-mix(in srgb, var(--fg) 7%, transparent);
+  --shadow: 0 8px 24px rgb(0 0 0 / 0.4);
+  --motion-hover: 150ms;
+  --motion-ease: cubic-bezier(0.22,1,0.36,1);
+  --gutter: 3.75rem;
+}
+
+* { box-sizing: border-box; }
+html {
+  min-height: 100%;
+  background-color: var(--bg);
+  background-image: var(--page-pattern);
+  background-size: 20px 20px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--dim) transparent;
+}
+body { color: var(--fg); font: 13px/1.4 var(--font); margin: 0; }
+button, input, textarea { font: inherit; color: inherit; }
+button { background: none; border: 0; padding: 0; }
+::selection { background: var(--accent); color: var(--accent-fg); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+#app { padding: 0.75rem 1rem; max-width: 1280px; margin: 0 auto; }
+
+.top { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; padding-bottom: 0.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid var(--border); }
+.nav { display: flex; align-items: center; gap: 0.35rem; flex: 1; min-width: 0; }
+.date { font-size: 15px; font-weight: 600; margin: 0 0 0 0.5rem; white-space: nowrap; }
+.hint { font-size: 11px; }
+.actions { display: flex; align-items: center; gap: 0.4rem; }
+
+.legend, .totals { display: flex; flex-wrap: wrap; gap: 0.75rem; font-size: 11px; color: var(--muted); }
+.legend-item { display: inline-flex; align-items: center; gap: 0.35rem; }
+.legend-item i { width: 10px; height: 10px; border-radius: 2px; background: color-mix(in srgb, var(--cat) 35%, transparent); border-left: 3px solid var(--cat); }
+
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 1.75rem; height: 1.75rem; border-radius: var(--r-md); color: var(--muted); cursor: pointer; font-size: 16px; }
+.icon-btn:hover { color: var(--fg); background: var(--surface-2); }
+.btn { padding: 0.2rem 0.7rem; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); cursor: pointer; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn-primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.link-btn { color: var(--accent); cursor: pointer; text-decoration: underline dotted; }
+
+.menu-wrap { position: relative; }
+.menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 10; min-width: 13rem; padding: 0.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--shadow); }
+.menu-item { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.35rem 0.5rem; border-radius: var(--r-sm); cursor: pointer; text-align: left; }
+.menu-item:hover { background: var(--hover); }
+.menu-item.active { color: var(--accent); }
+.swatch { display: inline-flex; border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
+.swatch i { width: 8px; height: 14px; }
+
+.error-bar { background: color-mix(in srgb, var(--danger) 12%, var(--bg)); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 50%, transparent); border-radius: var(--r-sm); padding: 0.4rem 0.75rem; margin-bottom: 0.75rem; white-space: pre-wrap; }
+.text-muted { color: var(--muted); }
+
+/* The paper sheet: priorities and brain dump on the left, the day's timeline on the right. */
+.layout { display: grid; grid-template-columns: minmax(16rem, 2fr) 3fr; gap: 1rem; align-items: start; }
+@media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+.side { display: flex; flex-direction: column; gap: 1rem; position: sticky; top: 0.75rem; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 0.75rem 0.9rem; }
+.label { margin: 0 0 0.6rem; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: var(--label-tracking); color: var(--muted); }
+.empty { margin: 0; color: var(--dim); }
+
+.priorities { list-style: none; margin: 0; padding: 0; }
+.priorities li { border-bottom: 1px solid var(--border); }
+.priorities li:last-child { border-bottom: 0; }
+.priorities label { display: flex; gap: 0.6rem; align-items: baseline; padding: 0.45rem 0; cursor: pointer; }
+.priorities input { accent-color: var(--accent); }
+.priorities li.done span { color: var(--muted); text-decoration: line-through; }
+
+.dump { white-space: pre-wrap; min-height: 10rem; background-image: radial-gradient(var(--border) 1px, transparent 0); background-size: 16px 16px; }
+
+.schedule-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.timeline { position: relative; }
+.slot { position: absolute; left: 0; right: 0; display: block; border-top: 1px solid var(--border); cursor: copy; text-align: left; }
+.slot.half { border-top-style: dashed; border-top-color: color-mix(in srgb, var(--border) 70%, transparent); }
+.slot:hover { background: var(--hover); }
+.hour { display: inline-block; width: var(--gutter); padding: 0.1rem 0 0 0.1rem; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.block { position: absolute; margin-top: 1px; padding: 0.2rem 0.5rem; overflow: hidden; display: flex; flex-direction: column; gap: 0.05rem;
+  background: color-mix(in srgb, var(--cat) 18%, var(--surface)); border-left: 3px solid var(--cat); border-radius: var(--r-sm);
+  transition: transform var(--motion-hover) var(--motion-ease), box-shadow var(--motion-hover) var(--motion-ease); cursor: default; }
+.block:hover { transform: translateY(-1px); box-shadow: var(--shadow); z-index: 2; }
+.block.short { flex-direction: row; align-items: center; gap: 0.5rem; }
+.block.tiny { padding: 0 0.5rem; font-size: 11px; line-height: 1; }
+.block-time { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.block-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.block:not(.short) .block-title { white-space: normal; }
+/* Meetings are other people's time: solid fill. Everything else is yours: hatched, so the two read apart at a glance. */
+.block.cat-meeting { background: color-mix(in srgb, var(--cat) 30%, var(--surface)); }
+.block:not(.cat-meeting) { background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--cat) 8%, transparent) 6px 12px); }
+.block.past { opacity: 0.55; }
+.block.current { outline: 1px solid var(--cat); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cat) 20%, transparent); }
+.now { position: absolute; left: calc(var(--gutter) - 6px); right: 0; height: 0; border-top: 2px solid var(--danger); z-index: 3; pointer-events: none; }
+.now::before { content: ""; position: absolute; left: 0; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
+
+.editor-wrap { display: flex; flex-direction: column; gap: 0.4rem; }
+.editor { width: 100%; height: calc(100vh - 9rem); padding: 0.75rem 1rem; resize: vertical; font: 13px/20px var(--font); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); outline: none; tab-size: 2; }
+.editor:focus { border-color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) { .block { transition: none; } }
