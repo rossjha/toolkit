@@ -29,6 +29,11 @@ test("accepts loose times and defaults the category", () => {
   assert.equal(day.endHour, 21);
 });
 
+test("calendar markers are hidden from the title", () => {
+  const day = parseDay("2026-10-29", "## Schedule\n- 11:00-11:30 [meeting] 1:1 with Sam <!-- gcal:abc_123 -->\n");
+  assert.equal(day.blocks[0].title, "1:1 with Sam");
+});
+
 test("warns about unreadable lines and unknown categories", () => {
   const day = parseDay("2026-10-29", "## Schedule\n- sometime: lunch\n- 10:00-09:00 backwards\n- 10:00-11:00 [gym] Run\n");
   assert.equal(day.warnings.length, 3);

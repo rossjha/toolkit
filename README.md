@@ -36,3 +36,5 @@ Categories: `meeting`, `focus`, `study`, `personal`, `admin`, `break`. See `exam
 ## With Claude
 
 Open Claude Code in this folder and just say what changed: "I've got a call with Sam at 2 for half an hour", "push the hiring plan to after lunch", "tick off the RFC replies". `CLAUDE.md` tells Claude where the files are and how to edit them, and the open page refreshes itself.
+
+Meetings come from Google Calendar via Claude, not the app: run `/sync-calendar` (or say "sync my calendar") and Claude adds each event as a `[meeting]` line tagged with a hidden `<!-- gcal:… -->` marker. Re-run it whenever the day shifts; it only ever touches those tagged lines, never your own blocks.

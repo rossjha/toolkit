@@ -139,7 +139,8 @@ export function parseDay(date: string, text: string): Day {
       }
       const category = (b[3] ?? DEFAULT_CATEGORY).toLowerCase();
       if (!categoryFor(category)) day.warnings.push(`Line ${i + 1}: unknown category [${b[3]}]`);
-      day.blocks.push({ start, end, category, title: b[4].trim(), line: i });
+      // A trailing HTML comment (e.g. <!-- gcal:abc123 -->, Claude's calendar-sync marker) isn't part of the title.
+      day.blocks.push({ start, end, category, title: b[4].replace(/\s*<!--.*?-->\s*$/, "").trim(), line: i });
     } else if (section === "braindump") {
       dump.push(raw);
     }

@@ -42,6 +42,16 @@ Schedule lines are `- HH:MM-HH:MM [category] Title`, 24-hour clock. Categories: 
 - Ticking a priority: change `[ ]` to `[x]`. Don't delete done ones.
 - Brain dump is the user's scratch space: append to it, never rewrite it.
 
+## Syncing from Google Calendar
+
+The app knows nothing about calendars; you populate the day file from the Google Calendar connector when asked ("sync my calendar", "what's on today?", `/sync-calendar`).
+
+- Fetch the day's events from the user's primary calendar, in their local time zone.
+- Each event becomes `- HH:MM-HH:MM [meeting] Title <!-- gcal:EVENT_ID -->`. The comment is hidden in the app and is how you recognise your own lines next time.
+- Skip events the user declined, all-day events and working-location events. Calendar "Focus time" events become `[focus]`; "Out of office" becomes `[personal]`. An event with no other attendees is the user's own block: guess the category from its title (`[study]`, `[admin]`, `[focus]`…).
+- Re-syncing: update lines whose `gcal:` id still exists (time or title may have moved), add new events, and delete `gcal:` lines whose event is gone or now declined. Never touch lines without a `gcal:` marker; those are the user's own.
+- Keep the Schedule sorted. Afterwards, say in a line or two what was added, moved or removed, and point out any clash with the user's own blocks; don't move their blocks unless asked.
+
 ## Code
 
 Node ≥ 22.18 runs the server's `.ts` directly; `npm run build` compiles `src/web` + `src/shared` to `public/js` and inlines the CSS. `npm test` covers the parser (`src/shared/day.ts`). The themes in `src/web/themes.css` and `themes.ts` are copied verbatim from forge (via atlassian-notes); don't edit them, re-copy instead.
