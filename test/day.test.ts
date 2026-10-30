@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { test } from "node:test";
-import { emptyDay, insertBlock, isDate, layoutBlocks, parseDay, togglePriority } from "../src/shared/day.ts";
+import { emptyDay, insertBlock, isDate, layoutBlocks, parseDay, setBrainDump, togglePriority } from "../src/shared/day.ts";
 
 const example = fs.readFileSync(new URL("../examples/2026-10-29.md", import.meta.url), "utf8");
 
@@ -57,6 +57,35 @@ test("insertBlock appends to the schedule", () => {
   assert.equal(text.split("\n")[line], "- 17:00-17:30 [admin] Wrap up");
   assert.equal(parseDay("2026-10-29", text).blocks.length, 11);
   assert.match(text, /Wrap up\n\n## Brain dump/);
+});
+
+test("insertBlock keeps the schedule in time order", () => {
+  const { text, line } = insertBlock(example, "- 10:00-10:30 [focus] Wedged in");
+  const day = parseDay("2026-10-29", text);
+  const lines = text.split("\n");
+  assert.equal(lines[line], "- 10:00-10:30 [focus] Wedged in");
+  assert.match(lines[line - 1], /09:30-11:00/);
+  assert.match(lines[line + 1], /11:00-11:30/);
+  assert.equal(day.blocks.length, 11);
+  const early = insertBlock(example, "- 07:00-07:30 [personal] Gym");
+  assert.equal(early.text.split("\n")[early.line - 1], "");
+  assert.match(early.text.split("\n")[early.line + 1], /08:30-09:00/);
+});
+
+test("meeting links become the block's url", () => {
+  const day = parseDay("2026-10-29", "## Schedule\n- 11:00-11:30 [meeting] 1:1 with Sam https://meet.google.com/abc-defg-hij <!-- gcal:x -->\n");
+  assert.equal(day.blocks[0].title, "1:1 with Sam");
+  assert.equal(day.blocks[0].url, "https://meet.google.com/abc-defg-hij");
+});
+
+test("setBrainDump replaces only the brain dump", () => {
+  const out = setBrainDump(example, "- one\n- two");
+  assert.equal(out.split("## Brain dump")[0], example.split("## Brain dump")[0]);
+  assert.equal(parseDay("2026-10-29", out).brainDump, "- one\n- two");
+  assert.match(out, /## Brain dump\n\n- one\n- two\n$/);
+  assert.equal(parseDay("2026-10-29", setBrainDump(out, "")).brainDump, "");
+  const added = setBrainDump("## Priorities\n\n- [ ] x\n", "note");
+  assert.match(added, /- \[ \] x\n\n## Brain dump\n\nnote\n$/);
 });
 
 test("insertBlock into an empty template", () => {

@@ -16,8 +16,11 @@ Day files live in `days/` (gitignored). Set `TIMEBLOCK_DIR` to keep them elsewhe
 ## Using it
 
 - **Priorities** on the left: tick them off in the browser.
+- **Brain dump**: click it (or press `b`) and type. It saves as you go; Esc or clicking away finishes. Only that section of the file changes.
 - **Schedule** on the right: meetings are solid blocks, your own time (focus, study, personal, admin, break) is hatched, each in its own theme colour. Clashes sit side by side. The red line is now; past blocks fade.
-- **Click an empty half-hour** to add a block there; it opens the editor with the line ready to finish. Double-click a block to jump to its line.
+- **Click a meeting** to open its Meet link (Google Meet's home page if the line has no link). Double-click any block to jump to its line in the editor.
+- **Click an empty half-hour** to add a block there; it opens the editor with the line slotted into time order, ready to finish.
+- **The eye button** (or `p`) hides the titles of personal blocks, for screen-sharing; the blocks stay. Your browser remembers the setting.
 - **Edit** (or `e`) opens the whole day as markdown. ⌘S/Ctrl+S saves, Esc cancels.
 - `←` / `→` change day, `t` goes back to today. The theme button (◐) picks any of the ten forge themes.
 

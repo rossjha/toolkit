@@ -57,6 +57,7 @@ button { background: none; border: 0; padding: 0; }
 
 .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 1.75rem; height: 1.75rem; border-radius: var(--r-md); color: var(--muted); cursor: pointer; font-size: 16px; }
 .icon-btn:hover { color: var(--fg); background: var(--surface-2); }
+.icon-btn-svg { width: 16px; height: 16px; }
 .btn { padding: 0.2rem 0.7rem; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); cursor: pointer; }
 .btn:hover:not(:disabled) { border-color: var(--accent); }
 .btn:disabled { opacity: 0.5; cursor: default; }
@@ -89,7 +90,13 @@ button { background: none; border: 0; padding: 0; }
 .priorities input { accent-color: var(--accent); }
 .priorities li.done span { color: var(--muted); text-decoration: line-through; }
 
-.dump { white-space: pre-wrap; min-height: 10rem; background-image: radial-gradient(var(--border) 1px, transparent 0); background-size: 16px 16px; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+.dump { display: block; width: 100%; margin: 0; white-space: pre-wrap; min-height: 10rem; padding: 0.4rem 0.5rem; border: 1px solid transparent; border-radius: var(--r-sm);
+  font: inherit; line-height: 1.5; background-image: radial-gradient(var(--border) 1px, transparent 0); background-size: 16px 16px; }
+.dump-view { cursor: text; }
+.dump-view:hover { border-color: var(--border); }
+.dump-view.empty { color: var(--dim); }
+.dump-edit { resize: none; overflow: hidden; outline: none; background-color: var(--surface-2); border-color: var(--accent); }
 
 .schedule-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
 .timeline { position: relative; }
@@ -102,11 +109,16 @@ button { background: none; border: 0; padding: 0; }
   background: color-mix(in srgb, var(--cat) 18%, var(--surface)); border-left: 3px solid var(--cat); border-radius: var(--r-sm);
   transition: transform var(--motion-hover) var(--motion-ease), box-shadow var(--motion-hover) var(--motion-ease); cursor: default; }
 .block:hover { transform: translateY(-1px); box-shadow: var(--shadow); z-index: 2; }
+/* Under an hour: time and title on one line, so a 15- or 45-minute block never clips its title. */
 .block.short { flex-direction: row; align-items: center; gap: 0.5rem; }
-.block.tiny { padding: 0 0.5rem; font-size: 11px; line-height: 1; }
+.block.short .block-title { white-space: nowrap; }
+.block.tiny { padding: 0 0.5rem; font-size: 12px; line-height: 1.2; }
 .block-time { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .block-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .block:not(.short) .block-title { white-space: normal; }
+.block.linked { cursor: pointer; }
+.block.private .block-title { color: var(--muted); font-style: italic; font-weight: 400; }
+.icon-btn.on { color: var(--accent); }
 /* Meetings are other people's time: solid fill. Everything else is yours: hatched, so the two read apart at a glance. */
 .block.cat-meeting { background: color-mix(in srgb, var(--cat) 30%, var(--surface)); }
 .block:not(.cat-meeting) { background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--cat) 8%, transparent) 6px 12px); }

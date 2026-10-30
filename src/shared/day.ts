@@ -34,6 +34,8 @@ export interface Block {
   end: number;
   category: string;
   title: string;
+  /** A link on the line (e.g. the Google Meet URL), opened when the block is clicked. */
+  url?: string;
   line: number;
 }
 
@@ -90,6 +92,7 @@ export function formatTime(minutes: number): string {
 
 // "- 09:00-09:30 [meeting] Standup" — dash, en dash or "to" between times; category optional.
 const BLOCK_RE = /^[-*]\s+(\d{1,2}(?::?\d{2})?)\s*(?:-|–|—|to)\s*(\d{1,2}(?::?\d{2})?)\s+(?:\[([\w-]+)\]\s*)?(.*)$/i;
+const URL_RE = /https?:\/\/\S+/;
 const TASK_RE = /^[-*]\s+\[( |x|X)\]\s?(.*)$/;
 
 export function parseDay(date: string, text: string): Day {
@@ -139,8 +142,12 @@ export function parseDay(date: string, text: string): Day {
       }
       const category = (b[3] ?? DEFAULT_CATEGORY).toLowerCase();
       if (!categoryFor(category)) day.warnings.push(`Line ${i + 1}: unknown category [${b[3]}]`);
-      // A trailing HTML comment (e.g. <!-- gcal:abc123 -->, Claude's calendar-sync marker) isn't part of the title.
-      day.blocks.push({ start, end, category, title: b[4].replace(/\s*<!--.*?-->\s*$/, "").trim(), line: i });
+      // A trailing HTML comment (e.g. <!-- gcal:abc123 -->, Claude's calendar-sync marker) isn't part of the title,
+      // and nor is a link: it becomes the block's click target.
+      let title = b[4].replace(/\s*<!--.*?-->\s*$/, "");
+      const url = URL_RE.exec(title)?.[0];
+      if (url) title = title.replace(url, "").replace(/\s{2,}/g, " ");
+      day.blocks.push({ start, end, category, title: title.trim(), ...(url && { url }), line: i });
     } else if (section === "braindump") {
       dump.push(raw);
     }
@@ -164,23 +171,61 @@ export function togglePriority(text: string, line: number): string {
   return lines.join("\n");
 }
 
-/** Adds a block line at the end of the Schedule section (creating the section if it's missing). */
+function sectionRange(lines: string[], name: RegExp): { head: number; end: number } | null {
+  const head = lines.findIndex((l) => name.test(l.trim()));
+  if (head === -1) return null;
+  let end = head + 1;
+  while (end < lines.length && !/^##\s/.test(lines[end].trim())) end++;
+  return { head, end };
+}
+
+/** Adds a block line to the Schedule in start-time order (creating the section if it's missing). */
 export function insertBlock(text: string, blockLine: string): { text: string; line: number } {
   const lines = text.split("\n");
-  let s = lines.findIndex((l) => /^##\s+schedule\s*$/i.test(l.trim()));
-  if (s === -1) {
+  let range = sectionRange(lines, /^##\s+schedule\s*$/i);
+  if (!range) {
     const dump = lines.findIndex((l) => /^##\s+brain\s*dump/i.test(l.trim()));
-    s = dump === -1 ? lines.length : dump;
-    lines.splice(s, 0, "## Schedule", "");
+    const at = dump === -1 ? lines.length : dump;
+    lines.splice(at, 0, "## Schedule", "");
+    range = { head: at, end: at + 2 };
   }
-  let last = s;
-  for (let i = s + 1; i < lines.length && !/^##\s/.test(lines[i].trim()); i++) if (lines[i].trim()) last = i;
-  // Blank line under the heading, then the blocks, then a blank line before the next heading.
-  const add = last === s ? ["", blockLine] : [blockLine];
+  const startOf = (l: string): number | null => {
+    const m = BLOCK_RE.exec(l.trim());
+    return m ? parseTime(m[1]) : null;
+  };
+  const mine = startOf(blockLine) ?? 0;
+  let last = range.head;
+  let at = -1;
+  for (let i = range.head + 1; i < range.end; i++) {
+    if (!lines[i].trim()) continue;
+    const t = startOf(lines[i]);
+    if (at === -1 && t !== null && t > mine) at = i;
+    last = i;
+  }
+  if (at !== -1) {
+    lines.splice(at, 0, blockLine);
+    return { text: lines.join("\n"), line: at };
+  }
+  // Last in the day: blank line under the heading, then the blocks, then a blank line before the next heading.
+  const add = last === range.head ? ["", blockLine] : [blockLine];
   lines.splice(last + 1, 0, ...add);
-  const at = last + add.length;
+  at = last + add.length;
   if (lines[at + 1] !== undefined && lines[at + 1].trim() !== "") lines.splice(at + 1, 0, "");
   return { text: lines.join("\n"), line: at };
+}
+
+/** Replaces the Brain dump section's body, leaving the rest of the file alone. */
+export function setBrainDump(text: string, dump: string): string {
+  const lines = text.split("\n");
+  const body = dump.trim() ? ["", ...dump.trimEnd().split("\n"), ""] : [""];
+  const range = sectionRange(lines, /^##\s+brain\s*dump\s*$/i);
+  if (!range) {
+    while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+    return [...lines, "", "## Brain dump", ...body].join("\n");
+  }
+  // At the end of the file keep a single trailing newline; before another section keep the blank separator.
+  lines.splice(range.head + 1, range.end - range.head - 1, ...body);
+  return lines.join("\n");
 }
 
 /** Side-by-side lanes for overlapping blocks: each block gets a lane and the lane count of its cluster. */
