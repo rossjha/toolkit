@@ -1,5 +1,6 @@
 import { formatClock, typedDuration } from "../shared/duration.ts";
 import { onEnter, onTab, type EditResult } from "../shared/editor.ts";
+import { createSync } from "../shared/sync.ts";
 import { adjust, initialTimer, isRunning, remaining, reset, setRemaining, start, stop, type TimerState } from "../shared/timer.ts";
 import { h } from "./dom.ts";
 import { icon } from "./icons.ts";
@@ -9,8 +10,6 @@ const TIMER_KEY = "meet-toolkit.timer";
 const DURATION_KEY = "meet-toolkit.duration";
 const DEFAULT_S = 1800;
 const STEP_S = 300;
-const SAVE_MS = 500;
-const RETRY_MS = 3000;
 const CLICK_MS = 220; // a single click waits this long so a double-click (reset) can win
 
 function readStore(key: string): string | null {
@@ -122,76 +121,30 @@ const notice = h(
 const saveState = h("span", { class: "save" }, "loading…");
 const pathEl = h("span", { class: "path" });
 
-let synced = ""; // the text we know the file holds
-let inFlight: string | null = null; // the text being saved
-let repull = false; // a file change arrived mid-save; look again afterwards
-let saveTimer: number | undefined;
-
-const dirty = (): boolean => notes.value !== synced;
-
 function setSaveState(text: string, failed = false): void {
   saveState.textContent = text;
   saveState.classList.toggle("failed", failed);
 }
 
-function scheduleSave(ms = SAVE_MS): void {
-  clearTimeout(saveTimer);
-  saveTimer = window.setTimeout(() => void save(), ms);
-}
-
-async function save(): Promise<void> {
-  clearTimeout(saveTimer);
-  if (inFlight !== null || !dirty()) return;
-  const text = notes.value;
-  inFlight = text;
-  setSaveState("saving…");
-  let ok = false;
-  try {
-    const res = await fetch("/api/notes", { method: "PUT", body: JSON.stringify({ text, base: synced }) });
-    if (!res.ok) throw new Error(String(res.status));
-    const body = (await res.json()) as { conflictFile: string | null };
-    synced = text;
-    ok = true;
-    setSaveState("saved");
-    if (body.conflictFile) {
-      noticeText.textContent = `Notes changed elsewhere while you typed. Their version: ${body.conflictFile.split("/").pop()}`;
-      notice.hidden = false;
-    }
-  } catch {
-    setSaveState("save failed", true);
-  } finally {
-    inFlight = null;
-  }
-  if (repull) {
-    repull = false;
-    void pull();
-  } else if (dirty()) scheduleSave(ok ? 0 : RETRY_MS);
-}
-
-/** Looks at the file after it changed on disk. Our own saves come back as text we already have. */
-async function pull(): Promise<void> {
-  if (inFlight !== null) {
-    repull = true;
-    return;
-  }
-  const res = await fetch("/api/notes").catch(() => null);
-  if (!res?.ok) return;
-  const { text } = (await res.json()) as { text: string };
-  if (text === synced) return;
-  if (dirty()) {
-    void save(); // typing wins; the server keeps their version as a conflict file
-    return;
-  }
-  const caret = notes.selectionStart;
-  notes.value = text;
-  synced = text;
-  notes.setSelectionRange(Math.min(caret, text.length), Math.min(caret, text.length));
-}
+const sync = createSync({
+  getText: () => notes.value,
+  setText: (text) => {
+    const caret = Math.min(notes.selectionStart, text.length);
+    notes.value = text;
+    notes.setSelectionRange(caret, caret);
+  },
+  request: (method, body) => fetch("/api/notes", { method, body }),
+  onSaveState: (s) => setSaveState(s === "saving" ? "saving…" : s === "saved" ? "saved" : "save failed", s === "failed"),
+  onConflict: (file) => {
+    noticeText.textContent = `Notes changed elsewhere while you typed. Their version: ${file.split("/").pop()}`;
+    notice.hidden = false;
+  },
+});
 
 function apply(r: EditResult): void {
   notes.setRangeText(r.text, 0, notes.value.length);
   notes.setSelectionRange(r.selStart, r.selEnd);
-  scheduleSave();
+  sync.edited();
 }
 
 notes.addEventListener("keydown", (e) => {
@@ -207,11 +160,12 @@ notes.addEventListener("keydown", (e) => {
     apply(onTab(notes.value, notes.selectionStart, notes.selectionEnd, e.shiftKey));
   }
 });
-notes.addEventListener("input", () => scheduleSave());
-notes.addEventListener("blur", () => void save());
+notes.addEventListener("input", () => sync.edited());
+notes.addEventListener("blur", () => void sync.save());
 // Closing the tab mid-sentence: send what's left without waiting.
 window.addEventListener("pagehide", () => {
-  if (dirty()) void fetch("/api/notes", { method: "PUT", body: JSON.stringify({ text: notes.value, base: synced }), keepalive: true });
+  const last = sync.unsaved();
+  if (last) void fetch("/api/notes", { method: "PUT", body: JSON.stringify(last), keepalive: true });
 });
 
 // ---- Theme picker (bottom right) ---------------------------------------------------------------
@@ -248,17 +202,13 @@ updateBar();
 
 void (async () => {
   try {
-    const res = await fetch("/api/notes");
-    const { text, path } = (await res.json()) as { text: string; path: string };
-    notes.value = text;
-    synced = text;
+    const { path } = await sync.load();
     pathEl.replaceChildren(h("bdi", {}, path)); // isolated, so the rtl ellipsis trims the start and keeps the filename
     pathEl.title = path;
-    setSaveState("saved");
   } catch {
     setSaveState("can't reach the server", true);
   }
   const events = new EventSource("/api/events");
-  events.onmessage = () => void pull();
-  events.onopen = () => void pull(); // after a reconnect, catch anything missed
+  events.onmessage = () => void sync.pull();
+  events.onopen = () => void sync.pull(); // after a reconnect, catch anything missed
 })();
