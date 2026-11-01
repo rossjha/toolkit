@@ -10,10 +10,11 @@ import {
   type Block,
   type Day,
 } from "../shared/day.ts";
-import { deleteBlock, locateBlock, pushBlocks, snapshotBlock, upsertBlock, type Snapshot } from "../shared/schedule.ts";
+import { deleteBlock, locateBlock, pushBlocks, retimeBlock, snapshotBlock, upsertBlock, type Snapshot } from "../shared/schedule.ts";
 import { categoryColor, findCategory, parseCategories, type Category } from "../shared/categories.ts";
 import { indentLines } from "../shared/indent.ts";
 import { openBlockDialog } from "./dialog.ts";
+import { attachDrag, isDragging } from "./drag.ts";
 import { eye, eyeOff, h, pencil } from "./dom.ts";
 import { THEMES, applySavedTheme, currentTheme, saveTheme } from "./themes.ts";
 
@@ -173,6 +174,31 @@ function openDialog(block: Block | null, slot?: { start: number; end: number }):
       startEditing(state.markdown, line === -1 ? undefined : caretAt(state.markdown, line));
     },
   });
+}
+
+/**
+ * Writes a dragged block's new times into the latest file text. The block is found again by the line it had when it was
+ * drawn (a live reload during the drag refreshes the text but not the page), and the drop is dropped if the day changed.
+ */
+async function dropBlock(snap: Snapshot, date: string, start: number, end: number): Promise<void> {
+  const line = state.date === date ? locateBlock(state.markdown, snap) : -1;
+  const next = line === -1 ? state.markdown : retimeBlock(state.markdown, line, start, end);
+  if (next === state.markdown) return afterDrag();
+  const before = state.markdown;
+  state.markdown = next; // show the drop straight away rather than after the round trip
+  afterDrag();
+  try {
+    await save(next);
+  } catch (e) {
+    console.error(e);
+    if (state.markdown === next) state.markdown = before;
+    await load(state.date);
+  }
+}
+
+/** Puts the page back in step with the file once a drag ends: the preview goes, and any render held back during it runs. */
+function afterDrag(): void {
+  if (!state.editing && state.dumpDraft === null && state.prioritiesDraft === null) render();
 }
 
 // ---------- view ----------
@@ -477,29 +503,49 @@ function schedule(day: Day): HTMLElement {
     // Meetings open their link (from the calendar sync), or Google Meet when there isn't one.
     const link = block.url ?? (block.category === "meeting" ? "https://meet.google.com/" : undefined);
     const time = `${formatTime(block.start)}–${formatTime(block.end)}`;
+    const own = !block.gcal;
     let clickTimer: ReturnType<typeof setTimeout> | undefined;
-    grid.append(
-      h(
-        "div",
-        {
-          class: `block ${cat ? cat.style : "hatched unknown"}${current ? " current" : ""}${past ? " past" : ""}${mins < 60 ? " short" : ""}${mins <= 15 ? " tiny" : ""}${hidden ? " private" : ""}${link ? " linked" : ""}`,
-          style: `--cat:${categoryColor(cat)};top:${top}px;height:${height - 2}px;left:calc(var(--gutter) + (100% - var(--gutter)) * ${lane} / ${lanes});width:calc((100% - var(--gutter)) / ${lanes} - 4px)`,
-          title: `${time} · ${label}${hidden ? "" : `\n${block.title}`}${link ? `\nClick to open ${block.url ? "the meeting link" : "Google Meet"} · double-click to edit` : "\nDouble-click to edit"}`,
-          // Wait out a possible double-click so editing a meeting doesn't also open it.
-          onclick: () => {
-            if (!link) return;
-            clearTimeout(clickTimer);
-            clickTimer = setTimeout(() => window.open(link, "_blank", "noopener"), 250);
-          },
-          ondblclick: () => {
-            clearTimeout(clickTimer);
-            openDialog(block);
-          },
+    const timeEl = h("span", { class: "block-time" }, time);
+    const el = h(
+      "div",
+      {
+        class: `block ${own ? "own" : "calendar"} ${cat ? cat.style : "hatched unknown"}${current ? " current" : ""}${past ? " past" : ""}${mins < 60 ? " short" : ""}${mins <= 15 ? " tiny" : ""}${hidden ? " private" : ""}${link ? " linked" : ""}`,
+        style: `--cat:${categoryColor(cat)};top:${top}px;height:${height - 2}px;left:calc(var(--gutter) + (100% - var(--gutter)) * ${lane} / ${lanes});width:calc((100% - var(--gutter)) / ${lanes} - 4px)`,
+        title: `${time} · ${label}${hidden ? "" : `\n${block.title}`}${link ? `\nClick to open ${block.url ? "the meeting link" : "Google Meet"} · double-click to edit` : "\nDouble-click to edit"}${own ? "\nDrag to move · drag the bottom edge to resize" : ""}`,
+        // Wait out a possible double-click so editing a meeting doesn't also open it.
+        onclick: () => {
+          if (!link) return;
+          clearTimeout(clickTimer);
+          clickTimer = setTimeout(() => window.open(link, "_blank", "noopener"), 250);
         },
-        h("span", { class: "block-time" }, time),
-        h("span", { class: "block-title" }, title),
-      ),
+        ondblclick: () => {
+          clearTimeout(clickTimer);
+          openDialog(block);
+        },
+      },
+      timeEl,
+      h("span", { class: "block-title" }, title),
     );
+    if (own) {
+      const handle = h("div", { class: "resize-handle", "aria-hidden": "true" });
+      el.append(handle);
+      const snap = snapshotBlock(state.markdown, block.line);
+      const date = state.date;
+      attachDrag(el, handle, {
+        start: block.start,
+        end: block.end,
+        pxPerMinute: SLOT_PX / 30,
+        onPreview: (s, e) => {
+          clearTimeout(clickTimer); // a click just before the drag must not open the link
+          timeEl.textContent = `${formatTime(s)}–${formatTime(e)}`;
+          // Let the timeline grow under a block dragged past the last hour, as it will once dropped.
+          grid.style.height = `${Math.max(slots * SLOT_PX, ((e - startMin) / 30) * SLOT_PX)}px`;
+        },
+        onCommit: (s, e) => void dropBlock(snap, date, s, e),
+        onCancel: () => afterDrag(),
+      });
+    }
+    grid.append(el);
   }
 
   if (isToday && now >= startMin && now <= day.endHour * 60) {
@@ -599,6 +645,7 @@ async function saveEditor(): Promise<void> {
 }
 
 function render(): void {
+  if (isDragging()) return; // the page is redrawn when the drag ends (afterDrag), so the block under the pointer stays put
   const day = parseDay(state.date, state.markdown);
   app.replaceChildren(header());
   const warnings = [...day.warnings, ...state.categoryWarnings];
@@ -661,7 +708,7 @@ function connectLive(): void {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (state.editing || state.dumpDraft !== null || state.prioritiesDraft !== null || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (state.editing || state.dumpDraft !== null || state.prioritiesDraft !== null || isDragging() || e.metaKey || e.ctrlKey || e.altKey) return;
   if ((e.target as HTMLElement).closest("input, textarea, select, dialog")) return;
   if (e.key === "ArrowLeft") void load(addDays(state.date, -1));
   else if (e.key === "ArrowRight") void load(addDays(state.date, 1));

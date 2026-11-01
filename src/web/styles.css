@@ -132,7 +132,21 @@ button { background: none; border: 0; padding: 0; }
 .editor { width: 100%; height: calc(100vh - 9rem); padding: 0.75rem 1rem; resize: vertical; font: 13px/20px var(--font); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); outline: none; tab-size: 2; }
 .editor:focus { border-color: var(--accent); }
 
-@media (prefers-reduced-motion: reduce) { .block { transition: none; } }
+/* Your own blocks move and stretch on the timeline; calendar meetings are fixed, and their plain cursor says so. */
+.block.own { cursor: grab; user-select: none; -webkit-user-select: none; }
+.block.calendar { cursor: default; }
+.resize-handle { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; cursor: ns-resize; }
+.resize-handle::after { content: ""; position: absolute; left: 50%; bottom: 2px; width: 1.5rem; height: 2px; margin-left: -0.75rem; border-radius: 1px; background: var(--cat); opacity: 0; transition: opacity var(--motion-hover) var(--motion-ease); }
+.block.own:hover .resize-handle::after, .block.dragging .resize-handle::after { opacity: 0.6; }
+.block.dragging { z-index: 4; transform: none; box-shadow: var(--shadow); outline: 1px solid var(--cat);
+  transition: top 80ms var(--motion-ease), height 80ms var(--motion-ease), box-shadow var(--motion-hover) var(--motion-ease); }
+.block.dragging .block-time { color: var(--fg); font-weight: 600; }
+.ghost { position: absolute; margin-top: 1px; border: 1px dashed color-mix(in srgb, var(--cat) 60%, transparent); border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--cat) 6%, transparent); pointer-events: none; }
+body.drag-move, body.drag-move * { cursor: grabbing !important; }
+body.drag-resize, body.drag-resize * { cursor: ns-resize !important; }
+
+@media (prefers-reduced-motion: reduce) { .block, .block.dragging, .resize-handle::after { transition: none; } }
 .priorities .count { margin-left: auto; padding-left: 0.5rem; }
 .priorities-edit { min-height: 5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
 
