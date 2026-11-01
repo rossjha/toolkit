@@ -1,0 +1,23 @@
+jiraFields:
+  storyPoints: customfield_10016   # differs per Jira site
+  sprint: customfield_10020
+  # acceptanceCriteria: customfield_10000
+custom:
+  category:
+    label: Category
+    type: select
+    options:
+      Payments re-platform: "#5b8def"
+      Tech debt: "#e5b45b"
+      Quick win: "#4caf7d"
+  ownerGuess:
+    label: Owner guess
+    type: text
+# Read-only columns showing other Jira fields; add the id to a view's columns. Chart with `by: column:<id>`.
+# jiraColumns:
+#   release:
+#     label: Release
+#     field: customfield_00000
+# Text for "Copy groom prompt"; {key}, {url} and {groomPath} are filled in per ticket.
+# The default names the author's own groom-work-item skill: change it to yours.
+# groomPrompt: "Run my-groom-skill on {key} ({url}). Save the result to {groomPath} with front matter: readiness, summary, groomed_at (ISO)."

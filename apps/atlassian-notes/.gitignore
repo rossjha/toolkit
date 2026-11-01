@@ -1,0 +1,8 @@
+node_modules
+dist/
+.env
+*.zip
+.superpowers/
+public/js/
+public/app.css
+public/vendor/
