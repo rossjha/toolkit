@@ -9,7 +9,7 @@ Requires Node 22.18 or newer.
 ```sh
 npm install
 npm run setup   # asks for site, email, token, default project; checks the connection
-npm start       # builds the CSS/JS, starts on http://localhost:4317 and opens your browser
+npm start       # builds the CSS/JS, starts on http://notes.localhost:4317 and opens your browser
 ```
 
 Your Jira settings are saved to `~/.config/atlassian-notes/.env` (mode 600), outside this folder. Set `ATLASSIAN_NOTES_ENV` to use a different file. The app never reads a `.env` in the app folder. `.env.example` lists every key (`NOTES_DIR`, `REFRESH_MINUTES`, `PORT`, `HOST`, `OPEN_BROWSER` are optional; `HOST` defaults to `127.0.0.1` and the Docker image sets it to `0.0.0.0`).
@@ -20,7 +20,7 @@ Prefer not to install Node, or want the app always running in the background? Wi
 
 ```sh
 docker compose run --rm app npm run setup   # first time only: same questions as above
-docker compose up -d                        # http://localhost:4317, restarts with Docker Desktop
+docker compose up -d                        # http://notes.localhost:4317, restarts with Docker Desktop
 ```
 
 To update: `git pull` (or unzip the new copy), then `docker compose up -d --build`. To stop: `docker compose down`. Logs: `docker compose logs -f`.

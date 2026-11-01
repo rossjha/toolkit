@@ -27,7 +27,7 @@ await readNotes(config.scratchpad); // creates the file and its folder before th
 const app = createApp({ scratchpad: config.scratchpad, publicDir: path.join(root, "public") });
 const server = http.createServer(app.handle);
 server.listen(config.port, config.host, () => {
-  const url = `http://localhost:${config.port}`;
+  const url = `http://meet.localhost:${config.port}`;
   console.log(`meet-toolkit on ${url}, notes in ${config.scratchpad}`);
   if (config.openBrowser) openUrl(url);
 });

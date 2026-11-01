@@ -195,6 +195,16 @@ test("security: bad origin 403, bad content-type 415, bad host 421", async () =>
   assert.equal(loop.status, 200);
 });
 
+test("security: its own notes.localhost name is a valid host and origin, other .localhost names aren't", async () => {
+  const own = await rawRequest("/api/config", { Host: `notes.localhost:${port}` });
+  assert.equal(own.status, 200);
+  const write = await rawRequest("/api/notes/PAY-1", { Host: `notes.localhost:${port}`, Origin: `http://notes.localhost:${port}`, "Content-Type": "application/json" }, "PUT");
+  assert.notEqual(write.status, 403);
+  assert.notEqual(write.status, 421);
+  const other = await rawRequest("/api/config", { Host: `meet.localhost:${port}` });
+  assert.equal(other.status, 421);
+});
+
 test("body limits and invalid JSON", async () => {
   const bad = await fetch(base() + "/api/notes/PAY-1", { method: "PUT", headers: J, body: "{nope" });
   assert.equal(bad.status, 400);

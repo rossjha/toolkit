@@ -11,7 +11,7 @@ Nothing personal or employer-specific lives here. Machine and job settings stay 
 | [`apps/timeblock`](apps/timeblock) | Time-blocking day sheet from a markdown file per day |
 | [`apps/meet-toolkit`](apps/meet-toolkit) | Countdown timer plus markdown scratchpad to keep beside Google Meet |
 
-Each app keeps its own scripts. From the root, `npm test` and `npm run typecheck` run them across every app.
+Each app opens at its own `*.localhost` name (`notes.localhost:4317`, `timeblock.localhost:4318`, `meet.localhost:4319`). Chrome keeps zoom per host name, ignoring the port, so this gives each app its own zoom level. Each app keeps its own scripts. From the root, `npm test` and `npm run typecheck` run them across every app.
 
 ## Claude Code plugin
 

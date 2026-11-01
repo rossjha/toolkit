@@ -592,7 +592,8 @@ export function createApp(deps: AppDeps): { server: http.Server; broadcast: (e: 
     res.setHeader("X-Content-Type-Options", "nosniff");
     const addr = server.address();
     const port = typeof addr === "object" && addr ? addr.port : config.port;
-    const hosts = [`localhost:${port}`, `127.0.0.1:${port}`];
+    // notes.localhost gives the app its own Chrome zoom level (Chrome keys zoom by host, not port); *.localhost is always loopback.
+    const hosts = [`localhost:${port}`, `127.0.0.1:${port}`, `notes.localhost:${port}`];
     if (!req.headers.host || !hosts.includes(req.headers.host.toLowerCase())) {
       throw new HttpError(421, "Misdirected request");
     }

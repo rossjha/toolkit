@@ -26,7 +26,7 @@ fs.mkdirSync(daysDir, { recursive: true });
 const app = createApp({ daysDir, publicDir: path.join(root, "public") });
 const server = http.createServer(app.handle);
 server.listen(port, "127.0.0.1", () => {
-  const url = `http://localhost:${port}`;
+  const url = `http://timeblock.localhost:${port}`;
   console.log(`timeblock on ${url} — day files in ${daysDir}`);
   if (process.env.OPEN_BROWSER !== "false") openUrl(url);
 });

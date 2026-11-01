@@ -8,7 +8,7 @@ Requires Node 22.18 or newer.
 
 ```sh
 npm install
-npm start      # builds, starts on http://localhost:4318 and opens your browser
+npm start      # builds, starts on http://timeblock.localhost:4318 and opens your browser
 ```
 
 Day files live in `days/` (gitignored). Set `TIMEBLOCK_DIR` to keep them elsewhere, `PORT` to change the port, `OPEN_BROWSER=false` to stop it opening a tab.

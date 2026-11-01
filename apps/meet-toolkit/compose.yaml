@@ -1,4 +1,4 @@
-# `docker compose up -d` runs meet-toolkit in the background at http://localhost:4319 (this Mac only).
+# `docker compose up -d` runs meet-toolkit in the background at http://meet.localhost:4319 (this Mac only).
 # Your notes folder stays on the Mac and is mounted at the same path, so the path the app shows is the real one.
 #
 # Optional settings go in a .env file next to this one:

@@ -157,7 +157,7 @@ async function main(): Promise<void> {
     app.server.once("error", reject);
     app.server.listen(config.port, config.host, resolve);
   });
-  const url = `http://localhost:${config.port}/`;
+  const url = `http://notes.localhost:${config.port}/`;
   console.log(`atlassian-notes running at ${url}`);
 
   refresher.start(config.refreshMinutes);

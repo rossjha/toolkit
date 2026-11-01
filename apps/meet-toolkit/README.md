@@ -8,7 +8,7 @@ Requires Node 22.18 or newer.
 
 ```sh
 npm install
-npm start      # builds, starts on http://localhost:4319 and opens your browser
+npm start      # builds, starts on http://meet.localhost:4319 and opens your browser
 ```
 
 Notes go to `~/meet-toolkit/meet-toolkit-scratchpad.md`. Set `MEET_SCRATCHPAD` to use another file (a leading `~` works), `PORT` to change the port, and `OPEN_BROWSER=false` to stop it opening a tab. The file and its folder are created if they don't exist.
@@ -16,7 +16,7 @@ Notes go to `~/meet-toolkit/meet-toolkit-scratchpad.md`. Set `MEET_SCRATCHPAD` t
 ## Run with Docker
 
 ```sh
-docker compose up -d     # http://localhost:4319, restarts with Docker Desktop
+docker compose up -d     # http://meet.localhost:4319, restarts with Docker Desktop
 ```
 
 To keep the scratchpad somewhere else, put `MEET_DIR=/path/to/folder` in a `.env` file next to `compose.yaml`. That folder is mounted at the same path, and the file inside it is `meet-toolkit-scratchpad.md`. `PORT` works there too. To update: `docker compose up -d --build`. To stop: `docker compose down`.

@@ -1,6 +1,6 @@
 # timeblock
 
-A local time-blocking day planner. Each day is one markdown file; the browser app (`npm start`, http://localhost:4318) renders it and live-reloads whenever the file changes, so editing the file is how you update the page.
+A local time-blocking day planner. Each day is one markdown file; the browser app (`npm start`, http://timeblock.localhost:4318) renders it and live-reloads whenever the file changes, so editing the file is how you update the page.
 
 ## Where the day files are
 
