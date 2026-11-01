@@ -14,3 +14,8 @@ export function formatClock(seconds: number): string {
   const s = Math.ceil(Math.max(0, seconds));
   return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 }
+
+/** What a time edit means: null when the input was left as it was prefilled, or isn't a valid time. */
+export function typedDuration(value: string, prefilled: string): number | null {
+  return value.trim() === prefilled.trim() ? null : parseDuration(value);
+}

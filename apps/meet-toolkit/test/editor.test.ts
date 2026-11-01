@@ -68,3 +68,11 @@ test("Shift+Tab outdents by up to one level", () => {
 test("Shift+Tab never moves the cursor before its line", () => {
   assert.equal(tab("x\n | - a", true), "x\n|- a");
 });
+
+test("Enter at or before the bullet marker is a plain newline", () => {
+  assert.equal(enter("|- foo"), null);
+  assert.equal(enter(" |  - foo"), null);
+  assert.equal(enter("- |foo"), null);
+  assert.equal(enter("- [ ] |foo"), null);
+  assert.equal(enter("- f|oo"), "- f\n- |oo");
+});

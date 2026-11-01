@@ -1,4 +1,4 @@
-import { formatClock, parseDuration } from "../shared/duration.ts";
+import { formatClock, typedDuration } from "../shared/duration.ts";
 import { onEnter, onTab, type EditResult } from "../shared/editor.ts";
 import { adjust, initialTimer, isRunning, remaining, reset, setRemaining, start, stop, type TimerState } from "../shared/timer.ts";
 import { h } from "./dom.ts";
@@ -92,12 +92,13 @@ time.addEventListener("dblclick", () => {
 });
 
 function editTime(): void {
-  const input = h("input", { class: "time-input", value: formatClock(remaining(timer, Date.now())), "aria-label": "Time" });
+  const prefilled = formatClock(remaining(timer, Date.now()));
+  const input = h("input", { class: "time-input", value: prefilled, "aria-label": "Time" });
   time.replaceWith(input);
   input.select();
   const finish = (apply: boolean): void => {
     if (!input.isConnected) return;
-    const s = apply ? parseDuration(input.value) : null;
+    const s = apply ? typedDuration(input.value, prefilled) : null; // untouched input changes nothing
     input.replaceWith(time);
     if (s !== null) setTimer(setRemaining(timer, s, Date.now()));
   };

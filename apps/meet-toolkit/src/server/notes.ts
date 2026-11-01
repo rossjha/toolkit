@@ -2,10 +2,12 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { conflictPath } from "./config.ts";
 
-/** Write to a temp file then rename, so Obsidian or a skill never sees half a file. */
+let writes = 0;
+
+/** Write to a temp file then rename, so Obsidian or a skill never sees half a file. Each write gets its own temp file. */
 async function writeAtomic(file: string, text: string): Promise<void> {
   await fsp.mkdir(path.dirname(file), { recursive: true });
-  const tmp = `${file}.tmp-${process.pid}`;
+  const tmp = `${file}.tmp-${process.pid}-${++writes}`;
   await fsp.writeFile(tmp, text, "utf8");
   await fsp.rename(tmp, file);
 }

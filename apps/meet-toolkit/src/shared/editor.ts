@@ -33,6 +33,8 @@ export function onEnter(text: string, selStart: number, selEnd: number): EditRes
     const caret = start + replacement.length;
     return { text: out, selStart: caret, selEnd: caret };
   }
+  // At or before the end of the marker, Enter just opens a line above: no new marker.
+  if (selStart <= start + indent.length + marker.length + 1 + (box?.length ?? 0)) return null;
   const insert = `\n${prefix(indent)}`;
   const caret = selStart + insert.length;
   return { text: text.slice(0, selStart) + insert + text.slice(selStart), selStart: caret, selEnd: caret };

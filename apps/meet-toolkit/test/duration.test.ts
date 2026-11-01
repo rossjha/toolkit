@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatClock, parseDuration } from "../src/shared/duration.ts";
+import { formatClock, parseDuration, typedDuration } from "../src/shared/duration.ts";
 
 test("parseDuration reads minutes or mm:ss", () => {
   assert.equal(parseDuration("27"), 1620);
@@ -22,4 +22,11 @@ test("formatClock pads, rounds up and never goes negative", () => {
   assert.equal(formatClock(0), "00:00");
   assert.equal(formatClock(-12), "00:00");
   assert.equal(formatClock(6000), "100:00");
+});
+
+test("typedDuration ignores an untouched input", () => {
+  assert.equal(typedDuration("12:34", "12:34"), null);
+  assert.equal(typedDuration(" 12:34 ", "12:34"), null);
+  assert.equal(typedDuration("27", "12:34"), 1620);
+  assert.equal(typedDuration("abc", "12:34"), null);
 });

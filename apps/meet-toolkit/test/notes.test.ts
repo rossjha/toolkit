@@ -48,3 +48,10 @@ test("saves leave no temp files behind", async () => {
   await saveNotes(file, "a", "");
   assert.deepEqual(await fs.readdir(dir), ["n.md"]);
 });
+
+test("overlapping saves both succeed", async () => {
+  const file = path.join(tmp(), "n.md");
+  await readNotes(file);
+  await Promise.all([saveNotes(file, "a", ""), saveNotes(file, "a", ""), saveNotes(file, "a", "")]);
+  assert.equal(await fs.readFile(file, "utf8"), "a");
+});
