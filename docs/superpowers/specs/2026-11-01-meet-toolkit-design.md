@@ -1,6 +1,6 @@
 # meet-toolkit: design
 
-**Date:** 2026-11-01 · **Status:** awaiting approval · **Lives in:** `apps/meet-toolkit` in the tools monorepo
+**Date:** 2026-11-01 · **Status:** approved (after a clickable mock) · **Lives in:** `apps/meet-toolkit` in the tools monorepo
 
 ## Intent
 
@@ -31,7 +31,6 @@ It has to be a local web app, not a Chrome extension: Ross's work doesn't allow 
 - No Chrome extension, Meet integration or calendar lookup.
 - No rendered markdown, preview mode, or syntax-highlighting editor library.
 - No multiple files, history or meeting list.
-- No theme picker.
 - No sound or notification at zero.
 
 ## Anti-goals (would count as failure even if it works)
@@ -43,7 +42,9 @@ It has to be a local web app, not a Chrome extension: Ross's work doesn't allow 
 ## Constraints and decisions
 
 - **Stack:** the same stack as timeblock. That's Node ≥22.18 running TypeScript natively, a plain `node:http` server, a vanilla TypeScript front end compiled by `tsc`, `node --test` for tests, no framework and no Tailwind. The CSS build inlines `themes.css` the way timeblock's `scripts/build-css.ts` does. *(Claude's call, matching Ross's request to start from timeblock.)*
-- **Theme:** the forge theme CSS from timeblock, fixed to **Carbon** with the same rounded-corner tweak, plus the bundled JetBrains Mono font. There's no theme switch and no `theme-init.js`. *(Carbon is Claude's call, as timeblock's default.)* The red "time's up" colour uses the theme's own danger/red token.
+- **Theme:** the ten forge themes, the picker and the pre-paint `theme-init.js` all come from timeblock (`themes.css`, `themes.ts`), with the localStorage key `meet-toolkit.theme`. The default is Carbon with the rounded-corner tweak, plus the bundled JetBrains Mono font. The picker button sits at the **bottom right**, in the status line under the notes, and its menu opens upward (Ross's decision). The red "time's up" colour uses the theme's `--danger` token.
+- **Icons:** Heroicons (24px outline, MIT) inlined as SVG path data and built with `createElementNS`, as in atlassian-notes' `src/web/icons.ts`. Needed: play, pause, minus, plus, swatch (theme picker) and x-mark (dismissing the notice). The "−5"/"+5" controls use minus and plus with a title tooltip.
+- **Layout reference:** the approved mock is in the scratchpad (not committed). The header bar is about 30px high with a 20px bold tabular-number time, accent-coloured while running. Small 22px icon buttons, −/+ folding away below a 240px container width (a container query), a borderless notes textarea filling the panel, and a one-line status footer (save state · file path · theme button).
 - **Workspace:** it's an npm workspace (`apps/meet-toolkit`) and uses the root lockfile.
 - **Config:** environment variables only, like timeblock.
   - `MEET_SCRATCHPAD`: absolute path to the notes file. Default: `~/meet-toolkit/meet-toolkit-scratchpad.md`, in its own folder so Docker never has to mount all of `$HOME`. *(Claude's call.)* The file and its folder are created if missing.
