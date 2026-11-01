@@ -268,6 +268,7 @@ function header(): HTMLElement {
     h(
       "div",
       { class: "actions" },
+      h("span", { class: "divider", "aria-hidden": "true" }),
       state.editing && h("button", { class: "btn", onclick: () => cancelEditor() }, "Cancel"),
       state.editing
         ? h("button", { class: "btn btn-primary", onclick: () => void saveEditor() }, "Save")

@@ -55,6 +55,7 @@ button { background: none; border: 0; padding: 0; }
 .totals { align-items: center; }
 .legend-item { display: inline-flex; align-items: center; gap: 0.35rem; }
 .legend { align-items: center; }
+.divider { width: 1px; height: 1rem; background: var(--border); margin: 0 0.15rem; }
 .legend-edit { width: 1.4rem; height: 1.4rem; }
 .legend-edit .icon-btn-svg { width: 13px; height: 13px; }
 .legend-item i { width: 10px; height: 10px; border-radius: 2px; background: color-mix(in srgb, var(--cat) 35%, transparent); border-left: 3px solid var(--cat); }

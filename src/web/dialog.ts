@@ -5,7 +5,7 @@ import { formatTime, type Block } from "../shared/day.ts";
 import type { Category } from "../shared/categories.ts";
 import type { BlockEdit, BlockFields } from "../shared/schedule.ts";
 import { childEdits, loadedChildren } from "./dialog-children.ts";
-import { h, link, svg, trash } from "./dom.ts";
+import { h, link, markdown, svg, trash } from "./dom.ts";
 
 export interface DialogOptions {
   block: Block | null; // null = new block
@@ -174,10 +174,10 @@ export function openBlockDialog(opts: DialogOptions): void {
       "div",
       { class: "dialog-head" },
       h("h2", { class: "label" }, block ? (calendar ? "Calendar meeting" : "Block") : "New block"),
-      h("button", { class: "link-btn", type: "button", title: "Edit this block's lines in the day's markdown", onclick: () => {
+      h("button", { class: "icon-btn", type: "button", title: "Open in markdown", "aria-label": "Open in markdown", onclick: () => {
         dialog.close();
         opts.onOpenMarkdown();
-      } }, "Open in markdown"),
+      } }, markdown()),
     ),
     calendar && h("p", { class: "text-muted hint dialog-note" }, "From Google Calendar: title, category and times sync from there. Links and notes are yours."),
     field("Title", title),
