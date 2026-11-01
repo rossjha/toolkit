@@ -215,3 +215,39 @@ test("delete refuses when children changed underneath", () => {
   const added = withKid.replace("  - note a", "  - note a\n  - added by Claude");
   assert.deepEqual(deleteBlock(added, snap), { ok: false, error: "This block changed in the file — reopen it." });
 });
+
+const busyLine = "- 09:00-10:00 [focus] Read https://a.com/x and https://b.com/y <!-- mine -->";
+const busyDay = `## Schedule\n\n${busyLine}\n  - a note\n\n## Brain dump\n`;
+// The fields the dialog hands back for busyLine when nothing is changed.
+const busyFields = () => {
+  const b = parseDay("2026-10-29", busyDay).blocks[0];
+  return { start: b.start, end: b.end, category: b.category, title: b.title, url: b.url };
+};
+
+test("upsert of only the times rewrites only the time range", () => {
+  const r = upsertBlock(busyDay, snapshotBlock(busyDay, 2), { fields: { ...busyFields(), start: 570, end: 630 } });
+  assert.ok(r.ok);
+  assert.equal(r.text, busyDay.replace("- 09:00-10:00", "- 09:30-10:30"));
+});
+
+test("upsert of only the category swaps the tag only", () => {
+  const r = upsertBlock(busyDay, snapshotBlock(busyDay, 2), { fields: { ...busyFields(), category: "admin" } });
+  assert.ok(r.ok);
+  assert.equal(r.text, busyDay.replace("[focus]", "[admin]"));
+  const plain = "## Schedule\n\n- 9-10  Plain  https://x.test  \n";
+  const tagged = upsertBlock(plain, snapshotBlock(plain, 2), { fields: { start: 540, end: 600, category: "admin", title: "Plain", url: "https://x.test" } });
+  assert.ok(tagged.ok);
+  assert.equal(tagged.text, "## Schedule\n\n- 9-10  [admin] Plain  https://x.test  \n");
+  const both = upsertBlock(busyDay, snapshotBlock(busyDay, 2), { fields: { ...busyFields(), category: "admin", start: 600, end: 660 } });
+  assert.ok(both.ok);
+  assert.equal(both.text, busyDay.replace("- 09:00-10:00 [focus]", "- 10:00-11:00 [admin]"));
+});
+
+test("upsert of the title reformats the line but keeps a trailing comment", () => {
+  const r = upsertBlock(busyDay, snapshotBlock(busyDay, 2), { fields: { ...busyFields(), title: "Renamed" } });
+  assert.ok(r.ok);
+  assert.equal(r.text, busyDay.replace(busyLine, "- 09:00-10:00 [focus] Renamed https://a.com/x <!-- mine -->"));
+  const link = upsertBlock(busyDay, snapshotBlock(busyDay, 2), { fields: { ...busyFields(), url: "https://c.com" } });
+  assert.ok(link.ok);
+  assert.equal(link.text, busyDay.replace(busyLine, "- 09:00-10:00 [focus] Read and https://b.com/y https://c.com <!-- mine -->"));
+});

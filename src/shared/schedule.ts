@@ -40,6 +40,11 @@ const SCHEDULE_RE = /^##\s+schedule\s*$/i;
 const HEADING_RE = /^##\s/;
 // The time range at the start of a block line, as BLOCK_RE reads it.
 const RANGE_RE = /^([-*]\s+)(\d{1,2}(?::?\d{2})?\s*(?:-|–|—|to)\s*\d{1,2}(?::?\d{2})?)/i;
+// The time range plus the optional `[tag]` after it (with the space that follows the tag).
+const TAG_RE = new RegExp(`${RANGE_RE.source}(\\s+)(?:\\[[\\w-]+\\](\\s*))?`, "i");
+// The trailing HTML comment(s) the day parser leaves out of the title.
+const COMMENT_RE = /<!--.*?-->\s*$/;
+const GCAL_COMMENT_RE = /<!--\s*gcal:/;
 
 export function formatBlockLine(f: BlockFields): string {
   const parts = [`${formatTime(f.start)}-${formatTime(f.end)}`];
@@ -102,7 +107,7 @@ export function upsertBlock(text: string, snap: Snapshot | null, edit: BlockEdit
 
   const parsed = parseGroup(lines.slice(at, groupEnd(lines, at)));
   if (!parsed) return { ok: false, error: GONE };
-  if (!sameFields(parsed, edit.fields)) lines[at] = formatBlockLine(edit.fields);
+  editLine(lines, at, parsed, edit.fields);
   if (editsChildren) {
     const end = groupEnd(lines, at);
     const group = lines.slice(at, end);
@@ -134,8 +139,33 @@ export function deleteBlock(text: string, snap: Snapshot): EditResult {
 /** Rewrites the time range on `line`, clamped to the day, then moves the block into order. Returns its new line. */
 function retimeAt(lines: string[], line: number, start: number, end: number): number {
   const [s, e] = clampRange(start, end);
-  lines[line] = lines[line].replace(RANGE_RE, (_m, bullet: string) => `${bullet}${formatTime(s)}-${formatTime(e)}`);
+  setRange(lines, line, s, e);
   return settle(lines, line, s);
+}
+
+function setRange(lines: string[], line: number, start: number, end: number): void {
+  lines[line] = lines[line].replace(RANGE_RE, (_m, bullet: string) => `${bullet}${formatTime(start)}-${formatTime(end)}`);
+}
+
+/**
+ * Writes the dialog's fields into the block line, touching only what changed: new times rewrite just the range and a new
+ * category just the `[tag]`, so the rest of the line keeps every byte. A new title or video link rewrites the line in the
+ * standard form, keeping a trailing comment of the user's own (the gcal marker comes from the fields).
+ */
+function editLine(lines: string[], at: number, b: Block, f: BlockFields): void {
+  if (b.title !== f.title || (b.url ?? "") !== (f.url ?? "") || (b.gcal ?? "") !== (f.gcal ?? "")) {
+    const comment = COMMENT_RE.exec(lines[at])?.[0].trim();
+    lines[at] = formatBlockLine(f) + (comment && !GCAL_COMMENT_RE.test(comment) ? ` ${comment}` : "");
+    return;
+  }
+  if (b.category !== f.category) {
+    lines[at] = lines[at].replace(TAG_RE, (m, bullet: string, range: string, gap: string, after: string | undefined) => {
+      const rest = lines[at].slice(m.length);
+      if (!f.category) return `${bullet}${range}${gap}`;
+      return `${bullet}${range}${gap}[${f.category}]${after ?? (rest ? " " : "")}`;
+    });
+  }
+  if (b.start !== f.start || b.end !== f.end) setRange(lines, at, f.start, f.end);
 }
 
 /** 0 ≤ start < end ≤ 24:00, shifting rather than shrinking a range that runs off either end of the day. */
@@ -169,17 +199,6 @@ function childLines(lines: string[], line: number): string[] {
 /** Reads a block line (plus children) the way the day parser does. */
 function parseGroup(group: string[]): Block | undefined {
   return parseDay("", ["## Schedule", ...group].join("\n")).blocks[0];
-}
-
-function sameFields(b: Block, f: BlockFields): boolean {
-  return (
-    b.start === f.start &&
-    b.end === f.end &&
-    b.category === f.category &&
-    b.title === f.title &&
-    (b.url ?? "") === (f.url ?? "") &&
-    (b.gcal ?? "") === (f.gcal ?? "")
-  );
 }
 
 function sameLines(a: string[], b: string[]): boolean {
