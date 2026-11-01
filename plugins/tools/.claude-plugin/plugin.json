@@ -1,0 +1,9 @@
+{
+  "name": "tools",
+  "version": "0.1.0",
+  "description": "Work skills: fortnightly planning and a learning coach.",
+  "author": {
+    "name": "rossjha"
+  },
+  "repository": "https://github.com/rossjha/tools"
+}

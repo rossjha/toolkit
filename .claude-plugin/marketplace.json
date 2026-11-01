@@ -1,0 +1,14 @@
+{
+  "name": "tools",
+  "owner": {
+    "name": "rossjha"
+  },
+  "description": "Portable work tools: Claude Code skills for planning and learning.",
+  "plugins": [
+    {
+      "name": "tools",
+      "source": "./plugins/tools",
+      "description": "Work skills: fortnightly planning and a learning coach."
+    }
+  ]
+}
