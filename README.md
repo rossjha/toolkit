@@ -30,3 +30,7 @@ Install:
 ```
 
 On first run, each skill creates its settings file in `~/.config/tools/<skill>.md` from the `config.example.md` in its folder.
+
+## Templates
+
+[`templates/obsidian`](templates/obsidian) holds Obsidian templates (fortnightly plan, meeting audit, slipbox permanent and literature notes). Copy them into a vault by hand.
