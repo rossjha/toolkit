@@ -6,12 +6,14 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 export const PACK_INCLUDE: string[] = [
   "package.json",
-  "package-lock.json",
   "tsconfig.json",
   "tsconfig.web.json",
   "tsconfig.scratchpad.json",
   ".env.example",
   "README.md",
+  "Dockerfile",
+  ".dockerignore",
+  "compose.yaml",
   "examples",
   "scripts",
   "src",
@@ -25,8 +27,17 @@ export function isExcluded(name: string): boolean {
   return name === ".DS_Store" || (name.startsWith(".env") && name !== ".env.example");
 }
 
-/** Stages PACK_INCLUDE (no symlinks, no env files) under <tmp>/atlassian-notes and zips that folder. */
-export function buildZip(root: string, out: string): void {
+/** Writes a standalone package-lock.json for the staged app (the monorepo's lockfile lives at the repo root). */
+function npmLock(dir: string): void {
+  const res = spawnSync("npm", ["install", "--package-lock-only", "--ignore-scripts", "--no-audit", "--no-fund"], {
+    cwd: dir,
+    stdio: "inherit",
+  });
+  if (res.status !== 0) throw new Error("npm could not generate package-lock.json.");
+}
+
+/** Stages PACK_INCLUDE (no symlinks, no env files) under <tmp>/atlassian-notes, adds a lockfile and zips that folder. */
+export function buildZip(root: string, out: string, makeLock: (dir: string) => void = npmLock): void {
   const stage = mkdtempSync(join(tmpdir(), "atlassian-notes-pack-"));
   try {
     const dest = join(stage, "atlassian-notes");
@@ -37,6 +48,7 @@ export function buildZip(root: string, out: string): void {
         filter: (src) => !isExcluded(basename(src)) && !lstatSync(src).isSymbolicLink(),
       });
     }
+    makeLock(dest);
     rmSync(out, { force: true });
     const res = spawnSync("zip", ["-r", "-q", "-y", out, "atlassian-notes", "-x", "*.DS_Store"], {
       cwd: stage,
