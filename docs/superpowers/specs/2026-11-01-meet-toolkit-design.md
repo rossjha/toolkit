@@ -1,6 +1,6 @@
 # meet-toolkit: design
 
-**Date:** 2026-11-01 · **Status:** approved · **Lives in:** `apps/meet-toolkit` in the tools monorepo
+**Date:** 2026-11-01 · **Status:** awaiting approval · **Lives in:** `apps/meet-toolkit` in the tools monorepo
 
 ## Intent
 
