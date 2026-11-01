@@ -34,6 +34,9 @@ export const eyeOff = (): SVGSVGElement =>
 // Heroicons-outline style paths.
 export const pencil = (): SVGSVGElement =>
   svg('<path d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"/>');
+// The markdown mark, outlined to match.
+export const markdown = (): SVGSVGElement =>
+  svg('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 15V9l3 3 3-3v6"/><path d="M17 9v6m-2.5-2.5L17 15l2.5-2.5"/>');
 export const link = (): SVGSVGElement =>
   svg('<path d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244"/>');
 export const trash = (): SVGSVGElement =>

@@ -15,7 +15,7 @@ import { DEFAULT_CATEGORIES, categoryColor, findCategory, parseCategories, type 
 import { indentLines } from "../shared/indent.ts";
 import { openBlockDialog } from "./dialog.ts";
 import { attachDrag, isDragging } from "./drag.ts";
-import { eye, eyeOff, h, pencil } from "./dom.ts";
+import { eye, eyeOff, h, markdown, pencil } from "./dom.ts";
 import { THEMES, applySavedTheme, currentTheme, saveTheme } from "./themes.ts";
 
 const SLOT_PX = 36; // height of 30 minutes on the timeline
@@ -263,6 +263,7 @@ function header(): HTMLElement {
       "div",
       { class: "legend" },
       ...state.categories.map((c) => h("span", { class: "legend-item", style: `--cat:${categoryColor(c)}` }, h("i"), c.label)),
+      h("button", { class: "icon-btn legend-edit", title: "Edit categories", onclick: () => void startEditingCategories() }, pencil()),
     ),
     h(
       "div",
@@ -270,7 +271,7 @@ function header(): HTMLElement {
       state.editing && h("button", { class: "btn", onclick: () => cancelEditor() }, "Cancel"),
       state.editing
         ? h("button", { class: "btn btn-primary", onclick: () => void saveEditor() }, "Save")
-        : h("button", { class: "icon-btn", title: "Edit the day's markdown (E)", onclick: () => startEditing() }, pencil()),
+        : h("button", { class: "icon-btn", title: "Edit the day's markdown (E)", onclick: () => startEditing() }, markdown()),
       h(
         "button",
         {
@@ -627,7 +628,6 @@ function schedule(day: Day): HTMLElement {
         ...totals.map((t) =>
           h("span", { class: "legend-item", style: `--cat:${categoryColor(t.c)}` }, h("i"), `${t.c.label} ${(t.mins / 60).toFixed(1).replace(/\.0$/, "")}h`),
         ),
-        h("button", { class: "icon-btn", title: "Edit categories", onclick: () => void startEditingCategories() }, pencil()),
       ),
     ),
     grid,
