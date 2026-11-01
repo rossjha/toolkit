@@ -44,7 +44,15 @@ for (const f of await fs.readdir(out, { recursive: true })) {
     throw new Error(`build-scratchpad: ${f} still references esm.sh`);
   }
 }
-const fontsSrc = path.join(root, "node_modules", "@excalidraw", "excalidraw", "dist", "prod", "fonts");
+// Walk up from the app so this works whether deps sit in the app or are hoisted to a workspace root.
+async function findPackageDir(name: string): Promise<string> {
+  for (let dir = root; ; dir = path.dirname(dir)) {
+    const candidate = path.join(dir, "node_modules", name);
+    if (await fs.stat(candidate).then(() => true, () => false)) return candidate;
+    if (dir === path.dirname(dir)) throw new Error(`build-scratchpad: cannot find ${name}`);
+  }
+}
+const fontsSrc = path.join(await findPackageDir("@excalidraw/excalidraw"), "dist", "prod", "fonts");
 for (const name of await fs.readdir(fontsSrc)) {
   if (!SKIP_FONTS.has(name)) await fs.cp(path.join(fontsSrc, name), path.join(out, "fonts", name), { recursive: true });
 }
