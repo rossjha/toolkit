@@ -46,11 +46,12 @@ test("buildZip nests under atlassian-notes/ and skips env files, .DS_Store and s
     writeFileSync(join(tmp, "outside.txt"), "x");
     symlinkSync(join(tmp, "outside.txt"), join(fake, "src", "link.txt"));
     const zip = join(tmp, "out.zip");
-    buildZip(fake, zip);
+    buildZip(fake, zip, (dir) => writeFileSync(join(dir, "package-lock.json"), "{}"));
     const names = execFileSync("unzip", ["-Z1", zip], { encoding: "utf8" }).split("\n").filter(Boolean);
     assert.ok(names.every((n) => n.startsWith("atlassian-notes/")), names.join());
     assert.ok(names.includes("atlassian-notes/src/a.ts"));
     assert.ok(names.includes("atlassian-notes/.env.example"));
+    assert.ok(names.includes("atlassian-notes/package-lock.json"), "lockfile generated for the standalone zip");
     for (const bad of [".env", ".env.local", ".DS_Store", "link.txt"]) {
       assert.ok(!names.some((n) => n.endsWith(`/src/${bad}`)), bad);
     }
