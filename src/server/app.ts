@@ -2,6 +2,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import type http from "node:http";
 import path from "node:path";
+import { DEFAULT_CATEGORIES, formatCategories } from "../shared/categories.ts";
 import { emptyDay, isDate } from "../shared/day.ts";
 
 const DEBOUNCE_MS = 150;
@@ -46,23 +47,28 @@ async function writeAtomic(file: string, text: string): Promise<void> {
 export function createApp(opts: AppOptions): { handle: http.RequestListener; close: () => void } {
   const clients = new Set<http.ServerResponse>();
   const timers = new Map<string, NodeJS.Timeout>();
-  const broadcast = (date: string): void => {
-    for (const res of clients) res.write(`data: ${JSON.stringify({ type: "day", date })}\n\n`);
+  const broadcast = (event: { type: "day"; date: string } | { type: "categories" }): void => {
+    for (const res of clients) res.write(`data: ${JSON.stringify(event)}\n\n`);
   };
 
-  // Any change to days/<date>.md — from the UI, Claude or an editor — is pushed to open pages.
+  const debounce = (key: string, event: Parameters<typeof broadcast>[0]): void => {
+    clearTimeout(timers.get(key));
+    timers.set(key, setTimeout(() => (timers.delete(key), broadcast(event)), DEBOUNCE_MS));
+  };
+
+  // Any change to days/<date>.md or days/categories.md — from the UI, Claude or an editor — is pushed to open pages.
   const watcher = fs.watch(opts.daysDir, (_event, filename) => {
-    const m = /^(\d{4}-\d{2}-\d{2})\.md$/.exec(filename?.toString() ?? "");
-    if (!m) return;
-    const date = m[1];
-    clearTimeout(timers.get(date));
-    timers.set(date, setTimeout(() => (timers.delete(date), broadcast(date)), DEBOUNCE_MS));
+    const name = filename?.toString() ?? "";
+    if (name === "categories.md") return debounce("categories", { type: "categories" });
+    const m = /^(\d{4}-\d{2}-\d{2})\.md$/.exec(name);
+    if (m) debounce(m[1], { type: "day", date: m[1] });
   });
   watcher.on("error", (e) => console.error("file watcher error:", e.message));
   const keepAlive = setInterval(() => {
     for (const res of clients) res.write(": ping\n\n");
   }, 25_000);
 
+  const categoriesFile = path.join(opts.daysDir, "categories.md");
   const dayFile = (date: string): string => path.join(opts.daysDir, `${date}.md`);
 
   const handle: http.RequestListener = async (req, res) => {
@@ -80,6 +86,24 @@ export function createApp(opts: AppOptions): { handle: http.RequestListener; clo
         return;
       }
       if (url.pathname === "/api/today") return send(200, { date: localToday() });
+
+      if (url.pathname === "/api/categories") {
+        if (req.method === "GET") {
+          try {
+            return send(200, { markdown: await fsp.readFile(categoriesFile, "utf8") });
+          } catch (e) {
+            if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+          }
+          const markdown = formatCategories(DEFAULT_CATEGORIES);
+          await writeAtomic(categoriesFile, markdown);
+          return send(200, { markdown });
+        }
+        if (req.method === "PUT") {
+          await writeAtomic(categoriesFile, await readBody(req));
+          return send(200, { ok: true });
+        }
+        return send(405, { error: "method not allowed" });
+      }
 
       const m = /^\/api\/day\/([^/]+)$/.exec(url.pathname);
       if (m) {

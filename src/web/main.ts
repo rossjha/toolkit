@@ -1,47 +1,45 @@
 import {
-  CATEGORIES,
-  categoryFor,
   formatTime,
-  insertBlock,
   isDate,
   layoutBlocks,
   parseDay,
+  sectionRange,
   setBrainDump,
+  setPriorities,
   togglePriority,
+  type Block,
   type Day,
 } from "../shared/day.ts";
+import { deleteBlock, locateBlock, pushBlocks, retimeBlock, snapshotBlock, upsertBlock, type Snapshot } from "../shared/schedule.ts";
+import { DEFAULT_CATEGORIES, categoryColor, findCategory, parseCategories, type Category } from "../shared/categories.ts";
+import { indentLines } from "../shared/indent.ts";
+import { openBlockDialog } from "./dialog.ts";
+import { attachDrag, isDragging } from "./drag.ts";
+import { eye, eyeOff, h, markdown, pencil, swatch } from "./dom.ts";
 import { THEMES, applySavedTheme, currentTheme, saveTheme } from "./themes.ts";
 
 const SLOT_PX = 36; // height of 30 minutes on the timeline
 const DUMP_SAVE_MS = 600;
 const HIDE_PERSONAL_KEY = "timeblock.hidePersonal";
 
-type Child = Node | string | null | undefined | false;
-function h<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  attrs: Record<string, string | boolean | ((e: Event) => void)> = {},
-  ...children: Child[]
-): HTMLElementTagNameMap[K] {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (typeof v === "function") el.addEventListener(k.replace(/^on/, ""), v);
-    else if (v === true) el.setAttribute(k, "");
-    else if (v !== false) el.setAttribute(k, v);
-  }
-  for (const c of children) if (c) el.append(c);
-  return el;
-}
-
 interface State {
   today: string;
   date: string;
   markdown: string;
   exists: boolean;
-  editing: { text: string; caret?: number } | null;
+  editing: { target: "day" | "categories"; text: string; caret?: number } | null;
+  categories: Category[];
+  categoryWarnings: string[];
+  /** The raw categories.md text, kept so the editor opens on the real file. */
+  categoriesText: string;
   changedOnDisk: boolean;
   /** The brain dump being typed in place; while set, live updates refresh the file text but not the page. */
   dumpDraft: string | null;
+  /** The priorities being edited in place; handled exactly like the brain dump. */
+  prioritiesDraft: string | null;
   hidePersonal: boolean;
+  /** A failed action to tell the user about (shown in the error bar until the next save or another day). */
+  error: string | null;
 }
 
 function storedFlag(key: string): boolean {
@@ -58,9 +56,14 @@ const state: State = {
   markdown: "",
   exists: false,
   editing: null,
+  categories: [],
+  categoryWarnings: [],
+  categoriesText: "",
   changedOnDisk: false,
   dumpDraft: null,
+  prioritiesDraft: null,
   hidePersonal: storedFlag(HIDE_PERSONAL_KEY),
+  error: null,
 };
 const app = document.getElementById("app")!;
 
@@ -89,6 +92,7 @@ async function load(date: string): Promise<void> {
   const r = await fetch(`/api/day/${date}`);
   const body = (await r.json()) as { markdown: string; exists: boolean; error?: string };
   if (!r.ok) throw new Error(body.error ?? r.statusText);
+  if (date !== state.date) state.error = null;
   state.date = date;
   state.markdown = body.markdown;
   state.exists = body.exists;
@@ -102,19 +106,141 @@ async function save(text: string): Promise<void> {
   if (!r.ok) throw new Error(((await r.json()) as { error?: string }).error ?? r.statusText);
   state.markdown = text;
   state.exists = true;
+  state.error = null;
+}
+
+function message(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+async function loadCategories(): Promise<void> {
+  const r = await fetch("/api/categories");
+  const body = (await r.json()) as { markdown: string; error?: string };
+  if (!r.ok) throw new Error(body.error ?? r.statusText);
+  const parsed = parseCategories(body.markdown);
+  state.categoriesText = body.markdown;
+  state.categories = parsed.categories;
+  state.categoryWarnings = parsed.warnings;
+}
+
+async function saveCategories(text: string): Promise<void> {
+  const r = await fetch("/api/categories", { method: "PUT", body: text });
+  if (!r.ok) throw new Error(((await r.json()) as { error?: string }).error ?? r.statusText);
+  const parsed = parseCategories(text);
+  state.categoriesText = text;
+  state.categories = parsed.categories;
+  state.categoryWarnings = parsed.warnings;
 }
 
 function startEditing(text = state.markdown, caret?: number): void {
-  state.editing = { text, caret };
+  state.editing = { target: "day", text, caret };
   state.changedOnDisk = false;
   render();
 }
 
-function addBlockAt(minutes: number): void {
-  const line = `- ${formatTime(minutes)}-${formatTime(minutes + 30)} [focus] `;
-  const { text, line: at } = insertBlock(state.markdown, line);
-  const caret = text.split("\n").slice(0, at + 1).join("\n").length;
-  startEditing(text, caret);
+/** Opens the categories editor on the file as it is now (never on defaults standing in for a file that failed to load). */
+async function startEditingCategories(): Promise<void> {
+  try {
+    await loadCategories();
+  } catch (e) {
+    state.error = `Couldn't load categories.md: ${message(e)}`;
+    return render();
+  }
+  state.editing = { target: "categories", text: state.categoriesText };
+  state.changedOnDisk = false;
+  render();
+}
+
+/** Leaves the editor without saving, picking up any change made to the day while it was open. */
+function cancelEditor(): void {
+  state.editing = null;
+  void reload();
+}
+
+/** Reloads the day, showing a failure in the error bar rather than leaving it unhandled. */
+async function reload(): Promise<void> {
+  try {
+    await load(state.date);
+  } catch (e) {
+    state.error = message(e);
+    render();
+  }
+}
+
+/** Where the caret goes to land on `line` in the editor. */
+function caretAt(text: string, line: number): number {
+  return text.split("\n").slice(0, line + 1).join("\n").length;
+}
+
+/** Applies a dialog edit to the latest file text (not the text the dialog opened on) and saves it in one write. */
+async function writeBlock(date: string, next: (text: string) => { ok: true; text: string } | { ok: false; error: string }): Promise<string | null> {
+  if (state.date !== date) return "The day changed — reopen the block.";
+  const r = next(state.markdown);
+  if (!r.ok) return r.error;
+  if (r.text !== state.markdown) {
+    try {
+      await save(r.text);
+    } catch (e) {
+      return message(e);
+    }
+  }
+  if (!state.editing && state.dumpDraft === null && state.prioritiesDraft === null) render();
+  return null;
+}
+
+/**
+ * The details dialog for `block` (with `snap`, its lines when the page was drawn), or for a new block in `slot`.
+ * The dialog belongs to the day it opened on: a save after moving to another day is refused.
+ */
+function openDialog(block: Block | null, snap: Snapshot | null, slot?: { start: number; end: number }): void {
+  const date = state.date;
+  openBlockDialog({
+    block,
+    slot,
+    categories: state.categories,
+    onSave: (edit, pushMinutes) =>
+      writeBlock(date, (text) => {
+        const r = upsertBlock(text, snap, edit);
+        return r.ok && pushMinutes ? { ok: true, text: pushBlocks(r.text, edit.fields.start, pushMinutes) } : r;
+      }),
+    onDelete: () => (snap ? writeBlock(date, (text) => deleteBlock(text, snap)) : Promise.resolve(null)),
+    onOpenMarkdown: () => {
+      if (!block || state.date !== date) return startEditing();
+      const line = snap ? locateBlock(state.markdown, snap) : -1;
+      startEditing(state.markdown, line === -1 ? undefined : caretAt(state.markdown, line));
+    },
+  });
+}
+
+/**
+ * Writes a dragged block's new times into the latest file text. The block is found again by the line it had when it was
+ * drawn (a live reload during the drag refreshes the text but not the page), and the drop is dropped if the day changed.
+ */
+async function dropBlock(snap: Snapshot, date: string, start: number, end: number): Promise<void> {
+  if (state.date !== date) return afterDrag();
+  const line = locateBlock(state.markdown, snap);
+  if (line === -1) {
+    state.error = "This block changed in the file — the move wasn't saved.";
+    return afterDrag();
+  }
+  const next = retimeBlock(state.markdown, line, start, end);
+  if (next === state.markdown) return afterDrag();
+  const before = state.markdown;
+  state.markdown = next; // show the drop straight away rather than after the round trip
+  afterDrag();
+  try {
+    await save(next);
+  } catch (e) {
+    if (state.markdown === next) state.markdown = before;
+    await reload();
+    state.error = `The move wasn't saved: ${message(e)}`;
+    afterDrag();
+  }
+}
+
+/** Puts the page back in step with the file once a drag ends: the preview goes, and any render held back during it runs. */
+function afterDrag(): void {
+  if (!state.editing && state.dumpDraft === null && state.prioritiesDraft === null) render();
 }
 
 // ---------- view ----------
@@ -136,15 +262,17 @@ function header(): HTMLElement {
     h(
       "div",
       { class: "legend" },
-      ...CATEGORIES.map((c) => h("span", { class: "legend-item", style: `--cat:${c.color}` }, h("i"), c.label)),
+      ...state.categories.map((c) => h("span", { class: "legend-item", style: `--cat:${categoryColor(c)}` }, h("i"), c.label)),
+      h("button", { class: "icon-btn legend-edit", title: "Edit categories", onclick: () => void startEditingCategories() }, pencil()),
     ),
     h(
       "div",
       { class: "actions" },
-      state.editing && h("button", { class: "btn", onclick: () => ((state.editing = null), render()) }, "Cancel"),
+      h("span", { class: "divider", "aria-hidden": "true" }),
+      state.editing && h("button", { class: "btn", onclick: () => cancelEditor() }, "Cancel"),
       state.editing
         ? h("button", { class: "btn btn-primary", onclick: () => void saveEditor() }, "Save")
-        : h("button", { class: "btn", title: "Edit the markdown (E)", onclick: () => startEditing() }, "Edit"),
+        : h("button", { class: "icon-btn", title: "Edit the day's markdown (E)", onclick: () => startEditing() }, markdown()),
       h(
         "button",
         {
@@ -159,22 +287,6 @@ function header(): HTMLElement {
     ),
   );
 }
-
-function svg(paths: string): SVGSVGElement {
-  const el = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  el.setAttribute("viewBox", "0 0 24 24");
-  el.setAttribute("class", "icon-btn-svg");
-  el.setAttribute("fill", "none");
-  el.setAttribute("stroke", "currentColor");
-  el.setAttribute("stroke-width", "2");
-  el.setAttribute("stroke-linecap", "round");
-  el.setAttribute("stroke-linejoin", "round");
-  el.innerHTML = paths;
-  return el;
-}
-const eye = (): SVGSVGElement => svg('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>');
-const eyeOff = (): SVGSVGElement =>
-  svg('<path d="M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.7 3.6M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M2 2l20 20"/>');
 
 function togglePersonal(): void {
   state.hidePersonal = !state.hidePersonal;
@@ -204,27 +316,109 @@ function themePicker(): HTMLElement {
       ),
     );
   }
-  const btn = h("button", { class: "icon-btn", title: "Theme", onclick: (e: Event) => {
+  const btn = h("button", { class: "icon-btn", title: "Theme", "aria-label": "Choose theme", onclick: (e: Event) => {
     e.stopPropagation();
     menu.hidden = !menu.hidden;
-  } }, "◐");
+  } }, swatch());
   document.addEventListener("click", () => (menu.hidden = true), { once: true });
   return h("div", { class: "menu-wrap" }, btn, menu);
 }
 
+let prioritiesTimer: ReturnType<typeof setTimeout> | undefined;
+/** The priorities body as last opened or saved; finishing without a change since then writes nothing. */
+let prioritiesSaved = "";
+
+/** The raw lines under ## Priorities (indentation intact), without the blank lines around them. */
+function prioritiesBody(markdown: string): string {
+  const lines = markdown.split("\n");
+  const range = sectionRange(lines, /^##\s+priorities\s*$/i);
+  return range ? lines.slice(range.head + 1, range.end).join("\n").replace(/^\s*\n/, "").trimEnd() : "";
+}
+
+/** Saves the priorities into the latest copy of the file, so edits elsewhere in it survive. */
+async function savePriorities(): Promise<void> {
+  clearTimeout(prioritiesTimer);
+  const draft = state.prioritiesDraft;
+  if (draft === null || draft === prioritiesSaved) return;
+  const next = setPriorities(state.markdown, draft);
+  if (next === state.markdown) {
+    prioritiesSaved = draft;
+    return;
+  }
+  state.markdown = next;
+  await save(next);
+  prioritiesSaved = draft;
+}
+
+function startPriorities(): void {
+  state.prioritiesDraft = prioritiesSaved = prioritiesBody(state.markdown);
+  render();
+}
+
+function prioritiesEditor(): HTMLElement {
+  const ta = h("textarea", { class: "dump dump-edit priorities-edit", spellcheck: false, placeholder: "- [ ] Something that matters today" }) as HTMLTextAreaElement;
+  ta.value = state.prioritiesDraft!;
+  const grow = (): void => {
+    ta.style.height = "auto";
+    ta.style.height = `${ta.scrollHeight + 2}px`;
+  };
+  ta.addEventListener("input", () => {
+    state.prioritiesDraft = ta.value;
+    grow();
+    clearTimeout(prioritiesTimer);
+    prioritiesTimer = setTimeout(() => void savePriorities(), DUMP_SAVE_MS);
+  });
+  const finish = async (keep: boolean): Promise<void> => {
+    if (state.prioritiesDraft === null) return;
+    if (keep) await savePriorities();
+    clearTimeout(prioritiesTimer);
+    state.prioritiesDraft = null;
+    await load(state.date);
+  };
+  ta.addEventListener("blur", () => void finish(true));
+  ta.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" || ((e.metaKey || e.ctrlKey) && (e.key === "s" || e.key === "Enter"))) {
+      e.preventDefault();
+      ta.blur();
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      const r = indentLines(ta.value, ta.selectionStart, ta.selectionEnd, e.shiftKey);
+      ta.value = r.value;
+      ta.setSelectionRange(r.selStart, r.selEnd);
+      ta.dispatchEvent(new Event("input"));
+    }
+  });
+  queueMicrotask(() => {
+    grow();
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  });
+  return ta;
+}
+
 function priorities(day: Day): HTMLElement {
+  const editing = state.prioritiesDraft !== null;
   return h(
     "section",
     { class: "card" },
-    h("h2", { class: "label" }, "Today's priorities"),
-    day.priorities.length
+    h(
+      "div",
+      { class: "card-head" },
+      h("h2", { class: "label" }, "Today's priorities"),
+      editing
+        ? h("span", { class: "text-muted hint" }, "saves as you type · Tab to nest · Esc to finish")
+        : h("button", { class: "icon-btn", title: "Edit priorities", onclick: () => startPriorities() }, pencil()),
+    ),
+    editing
+      ? prioritiesEditor()
+      : day.priorities.length
       ? h(
           "ul",
           { class: "priorities" },
           ...day.priorities.map((p) =>
             h(
               "li",
-              { class: p.done ? "done" : "" },
+              { class: p.done ? "done" : "", style: `padding-left:${p.depth * 1.25}rem` },
               h("label", {},
                 h("input", {
                   type: "checkbox",
@@ -235,6 +429,7 @@ function priorities(day: Day): HTMLElement {
                   },
                 }),
                 h("span", {}, p.text),
+                p.total > 0 && h("span", { class: "text-muted hint count" }, `${p.doneCount}/${p.total}`),
               ),
             ),
           ),
@@ -244,15 +439,22 @@ function priorities(day: Day): HTMLElement {
 }
 
 let dumpTimer: ReturnType<typeof setTimeout> | undefined;
+/** The brain dump as last opened or saved; finishing without a change since then writes nothing. */
+let dumpSaved = "";
 
 /** Saves the brain dump into the latest copy of the file, so edits elsewhere in it (Claude, the editor) survive. */
 async function saveDump(): Promise<void> {
   clearTimeout(dumpTimer);
-  if (state.dumpDraft === null) return;
-  const next = setBrainDump(state.markdown, state.dumpDraft);
-  if (next === state.markdown) return;
+  const draft = state.dumpDraft;
+  if (draft === null || draft === dumpSaved) return;
+  const next = setBrainDump(state.markdown, draft);
+  if (next === state.markdown) {
+    dumpSaved = draft;
+    return;
+  }
   state.markdown = next; // before the request, so a click elsewhere (a checkbox, a slot) builds on it
   await save(next);
+  dumpSaved = draft;
 }
 
 function brainDump(day: Day): HTMLElement {
@@ -319,7 +521,7 @@ function brainDump(day: Day): HTMLElement {
 }
 
 function startDump(current: string): void {
-  state.dumpDraft = current;
+  state.dumpDraft = dumpSaved = current;
   render();
 }
 
@@ -337,7 +539,7 @@ function schedule(day: Day): HTMLElement {
           class: `slot${s % 2 ? " half" : ""}`,
           style: `top:${s * SLOT_PX}px;height:${SLOT_PX}px`,
           title: `Add a block at ${formatTime(minutes)}`,
-          onclick: () => addBlockAt(minutes),
+          onclick: () => openDialog(null, null, { start: minutes, end: minutes + 30 }),
         },
         s % 2 ? "" : h("span", { class: "hour" }, formatTime(minutes)),
       ),
@@ -347,7 +549,7 @@ function schedule(day: Day): HTMLElement {
   const isToday = day.date === state.today;
   const now = nowMinutes();
   for (const { block, lane, lanes } of layoutBlocks(day.blocks)) {
-    const cat = categoryFor(block.category);
+    const cat = findCategory(state.categories, block.category);
     const top = ((block.start - startMin) / 30) * SLOT_PX;
     const height = ((block.end - block.start) / 30) * SLOT_PX;
     const current = isToday && now >= block.start && now < block.end;
@@ -359,37 +561,57 @@ function schedule(day: Day): HTMLElement {
     // Meetings open their link (from the calendar sync), or Google Meet when there isn't one.
     const link = block.url ?? (block.category === "meeting" ? "https://meet.google.com/" : undefined);
     const time = `${formatTime(block.start)}–${formatTime(block.end)}`;
+    const own = !block.gcal;
+    // The block's lines as drawn: the dialog and a drag find it again by these, even if the file moved on since.
+    const snap = snapshotBlock(state.markdown, block.line);
     let clickTimer: ReturnType<typeof setTimeout> | undefined;
-    grid.append(
-      h(
-        "div",
-        {
-          class: `block cat-${block.category}${current ? " current" : ""}${past ? " past" : ""}${mins < 60 ? " short" : ""}${mins <= 15 ? " tiny" : ""}${hidden ? " private" : ""}${link ? " linked" : ""}`,
-          style: `--cat:${cat?.color ?? "var(--dim)"};top:${top}px;height:${height - 2}px;left:calc(var(--gutter) + (100% - var(--gutter)) * ${lane} / ${lanes});width:calc((100% - var(--gutter)) / ${lanes} - 4px)`,
-          title: `${time} · ${label}${hidden ? "" : `\n${block.title}`}${link ? `\nClick to open ${block.url ? "the meeting link" : "Google Meet"} · double-click to edit` : "\nDouble-click to edit"}`,
-          // Wait out a possible double-click so editing a meeting doesn't also open it.
-          onclick: () => {
-            if (!link) return;
-            clearTimeout(clickTimer);
-            clickTimer = setTimeout(() => window.open(link, "_blank", "noopener"), 250);
-          },
-          ondblclick: () => {
-            clearTimeout(clickTimer);
-            const caret = state.markdown.split("\n").slice(0, block.line + 1).join("\n").length;
-            startEditing(state.markdown, caret);
-          },
+    const timeEl = h("span", { class: "block-time" }, time);
+    const el = h(
+      "div",
+      {
+        class: `block ${own ? "own" : "calendar"} ${cat ? cat.style : "hatched unknown"}${current ? " current" : ""}${past ? " past" : ""}${mins < 60 ? " short" : ""}${mins <= 15 ? " tiny" : ""}${hidden ? " private" : ""}${link ? " linked" : ""}`,
+        style: `--cat:${categoryColor(cat)};top:${top}px;height:${height - 2}px;left:calc(var(--gutter) + (100% - var(--gutter)) * ${lane} / ${lanes});width:calc((100% - var(--gutter)) / ${lanes} - 4px)`,
+        title: `${time} · ${label}${hidden ? "" : `\n${block.title}`}${link ? `\nClick to open ${block.url ? "the meeting link" : "Google Meet"} · double-click to edit` : "\nDouble-click to edit"}${own ? "\nDrag to move · drag the bottom edge to resize" : ""}`,
+        // Wait out a possible double-click so editing a meeting doesn't also open it.
+        onclick: () => {
+          if (!link) return;
+          clearTimeout(clickTimer);
+          clickTimer = setTimeout(() => window.open(link, "_blank", "noopener"), 250);
         },
-        h("span", { class: "block-time" }, time),
-        h("span", { class: "block-title" }, title),
-      ),
+        ondblclick: () => {
+          clearTimeout(clickTimer);
+          openDialog(block, snap);
+        },
+      },
+      timeEl,
+      h("span", { class: "block-title" }, title),
     );
+    if (own) {
+      const handle = h("div", { class: "resize-handle", "aria-hidden": "true" });
+      el.append(handle);
+      const date = state.date;
+      attachDrag(el, handle, {
+        start: block.start,
+        end: block.end,
+        pxPerMinute: SLOT_PX / 30,
+        onPreview: (s, e) => {
+          clearTimeout(clickTimer); // a click just before the drag must not open the link
+          timeEl.textContent = `${formatTime(s)}–${formatTime(e)}`;
+          // Let the timeline grow under a block dragged past the last hour, as it will once dropped.
+          grid.style.height = `${Math.max(slots * SLOT_PX, ((e - startMin) / 30) * SLOT_PX)}px`;
+        },
+        onCommit: (s, e) => void dropBlock(snap, date, s, e),
+        onCancel: () => afterDrag(),
+      });
+    }
+    grid.append(el);
   }
 
   if (isToday && now >= startMin && now <= day.endHour * 60) {
     grid.append(h("div", { class: "now", style: `top:${((now - startMin) / 30) * SLOT_PX}px` }));
   }
 
-  const totals = CATEGORIES.map((c) => ({
+  const totals = state.categories.map((c) => ({
     c,
     mins: day.blocks.filter((b) => b.category === c.id).reduce((n, b) => n + b.end - b.start, 0),
   })).filter((t) => t.mins);
@@ -405,7 +627,7 @@ function schedule(day: Day): HTMLElement {
         "div",
         { class: "totals" },
         ...totals.map((t) =>
-          h("span", { class: "legend-item", style: `--cat:${t.c.color}` }, h("i"), `${t.c.label} ${(t.mins / 60).toFixed(1).replace(/\.0$/, "")}h`),
+          h("span", { class: "legend-item", style: `--cat:${categoryColor(t.c)}` }, h("i"), `${t.c.label} ${(t.mins / 60).toFixed(1).replace(/\.0$/, "")}h`),
         ),
       ),
     ),
@@ -414,6 +636,7 @@ function schedule(day: Day): HTMLElement {
 }
 
 function editor(): HTMLElement {
+  const target = state.editing!.target;
   const ta = h("textarea", { class: "editor", spellcheck: false }) as HTMLTextAreaElement;
   ta.value = state.editing!.text;
   const remember = (): void => {
@@ -427,8 +650,7 @@ function editor(): HTMLElement {
       e.preventDefault();
       void saveEditor();
     } else if (e.key === "Escape") {
-      state.editing = null;
-      render();
+      cancelEditor();
     }
   });
   queueMicrotask(() => {
@@ -446,26 +668,49 @@ function editor(): HTMLElement {
       h(
         "div",
         { class: "error-bar" },
-        "This day changed on disk while you were editing. ",
-        h("button", { class: "link-btn", onclick: () => void load(state.date).then(() => startEditing()) }, "Load the new version"),
+        target === "day" ? "This day changed on disk while you were editing. " : "The categories changed on disk while you were editing. ",
+        h(
+          "button",
+          {
+            class: "link-btn",
+            onclick: () =>
+              void (target === "day"
+                ? load(state.date).then(() => startEditing())
+                : startEditingCategories()),
+          },
+          "Load the new version",
+        ),
         " (discards your edits) or Save to overwrite it.",
       ),
     ta,
-    h("p", { class: "text-muted hint" }, "⌘S / Ctrl+S saves · Esc cancels · blocks: - 09:00-09:30 [meeting] Title"),
+    h(
+      "p",
+      { class: "text-muted hint" },
+      target === "day"
+        ? "⌘S / Ctrl+S saves · Esc cancels · blocks: - 09:00-09:30 [meeting] Title"
+        : "⌘S / Ctrl+S saves · Esc cancels · - tag: Label · colour · solid|hatched",
+    ),
   );
 }
 
 async function saveEditor(): Promise<void> {
   if (!state.editing) return;
+  if (state.editing.target === "categories") {
+    await saveCategories(state.editing.text);
+    state.editing = null;
+    return reload(); // the day may have changed while the categories were open
+  }
   await save(state.editing.text);
   state.editing = null;
   render();
 }
 
 function render(): void {
+  if (isDragging()) return; // the page is redrawn when the drag ends (afterDrag), so the block under the pointer stays put
   const day = parseDay(state.date, state.markdown);
   app.replaceChildren(header());
-  if (day.warnings.length && !state.editing) app.append(h("div", { class: "error-bar" }, day.warnings.join("\n")));
+  const warnings = [...(state.error ? [state.error] : []), ...day.warnings, ...state.categoryWarnings];
+  if (warnings.length && !state.editing) app.append(h("div", { class: "error-bar" }, warnings.join("\n")));
   app.append(
     state.editing
       ? editor()
@@ -475,35 +720,62 @@ function render(): void {
 
 // ---------- wiring ----------
 
+function onCategoriesChanged(): void {
+  if (state.editing?.target === "categories") {
+    // Our own save also fires this; only flag it if the file really differs from what we last saw.
+    void fetch("/api/categories")
+      .then((r) => r.json() as Promise<{ markdown: string }>)
+      .then((b) => {
+        if (state.editing?.target === "categories" && b.markdown !== state.categoriesText) {
+          state.changedOnDisk = true;
+          render();
+        }
+      });
+  } else {
+    void loadCategories().then(() => {
+      if (!state.editing && state.dumpDraft === null && state.prioritiesDraft === null) render();
+    });
+  }
+}
+
 function connectLive(): void {
   const es = new EventSource("/api/events");
   es.onmessage = (m) => {
-    const ev = JSON.parse(m.data as string) as { type: string; date: string };
+    const ev = JSON.parse(m.data as string) as { type: string; date?: string };
+    if (ev.type === "categories") {
+      onCategoriesChanged();
+      return;
+    }
     if (ev.type !== "day" || ev.date !== state.date) return;
-    if (state.dumpDraft !== null) {
+    if (state.dumpDraft !== null || state.prioritiesDraft !== null) {
       // Keep the text box (and its focus) as it is; just track the file so the next save merges into it.
       void fetch(`/api/day/${state.date}`)
         .then((r) => r.json() as Promise<{ markdown: string }>)
         .then((b) => (state.markdown = b.markdown));
-    } else if (state.editing) {
+    } else if (state.editing?.target === "day") {
       // Our own save also fires this; only flag it if the file really differs from what we last saw.
       void fetch(`/api/day/${state.date}`)
         .then((r) => r.json() as Promise<{ markdown: string }>)
         .then((b) => {
-          if (state.editing && b.markdown !== state.markdown) {
+          if (state.editing?.target === "day" && b.markdown !== state.markdown) {
             state.changedOnDisk = true;
             render();
           }
         });
-    } else {
-      void load(state.date);
+    } else if (state.editing?.target === "categories") {
+      // The page isn't showing the day, but the next action on it must build on the file as it is now.
+      void fetch(`/api/day/${state.date}`)
+        .then((r) => r.json() as Promise<{ markdown: string }>)
+        .then((b) => (state.markdown = b.markdown));
+    } else if (!state.editing) {
+      void reload();
     }
   };
 }
 
 document.addEventListener("keydown", (e) => {
-  if (state.editing || state.dumpDraft !== null || e.metaKey || e.ctrlKey || e.altKey) return;
-  if ((e.target as HTMLElement).closest("input, textarea")) return;
+  if (state.editing || state.dumpDraft !== null || state.prioritiesDraft !== null || isDragging() || e.metaKey || e.ctrlKey || e.altKey) return;
+  if ((e.target as HTMLElement).closest("input, textarea, select, dialog")) return;
   if (e.key === "ArrowLeft") void load(addDays(state.date, -1));
   else if (e.key === "ArrowRight") void load(addDays(state.date, 1));
   else if (e.key === "t") void load(state.today);
@@ -527,6 +799,12 @@ async function boot(): Promise<void> {
   applySavedTheme();
   state.today = ((await (await fetch("/api/today")).json()) as { date: string }).date;
   const d = location.hash.slice(1);
+  try {
+    await loadCategories();
+  } catch (e) {
+    state.categories = [...DEFAULT_CATEGORIES];
+    state.categoryWarnings = [`Couldn't load categories.md (${message(e)}); showing the default categories.`];
+  }
   await load(isDate(d) ? d : state.today);
   connectLive();
   // Keep the now-line moving and roll over to the new day at midnight.
@@ -534,7 +812,7 @@ async function boot(): Promise<void> {
     const today = ((await (await fetch("/api/today")).json()) as { date: string }).date;
     const wasToday = state.date === state.today;
     state.today = today;
-    if (state.editing || state.dumpDraft !== null) return;
+    if (state.editing || state.dumpDraft !== null || state.prioritiesDraft !== null) return;
     if (wasToday && state.date !== today) await load(today);
     else render();
   }, 60_000);
