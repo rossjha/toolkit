@@ -1,0 +1,22 @@
+# `docker compose up -d` runs meet-toolkit in the background at http://localhost:4319 (this Mac only).
+# Your notes folder stays on the Mac and is mounted at the same path, so the path the app shows is the real one.
+#
+# Optional settings go in a .env file next to this one:
+#   MEET_DIR=/Users/you/obsidian/Vault/Meetings   # folder for meet-toolkit-scratchpad.md (default ~/meet-toolkit)
+#   PORT=4400                                     # if 4319 is taken
+
+services:
+  app:
+    build: .
+    image: meet-toolkit
+    init: true
+    restart: unless-stopped
+    environment:
+      HOME: ${HOME}
+      PORT: ${PORT:-4319}
+      MEET_SCRATCHPAD: ${MEET_DIR:-${HOME}/meet-toolkit}/meet-toolkit-scratchpad.md
+    ports:
+      - "127.0.0.1:${PORT:-4319}:${PORT:-4319}"
+    volumes:
+      # The folder, not the file: saves replace the file, which a single-file mount would lose.
+      - ${MEET_DIR:-${HOME}/meet-toolkit}:${MEET_DIR:-${HOME}/meet-toolkit}

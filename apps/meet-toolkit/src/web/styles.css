@@ -1,0 +1,83 @@
+/* Forge themes (themes.css, copied via timeblock) + the same base look as timeblock and atlassian-notes. */
+@import "./themes.css";
+
+/* JetBrains Mono (SIL OFL 1.1, public/fonts/OFL.txt), bundled locally from @fontsource-variable/jetbrains-mono 5.3.0. */
+@font-face {
+  font-family: "JetBrains Mono Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url("/fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2-variations"), url("/fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2");
+}
+
+/* Our tweak to forge's Carbon, as in atlassian-notes: slightly rounded corners instead of square. */
+:root:not([data-theme]),
+[data-theme="carbon"] {
+  --r-sm: 3px;
+  --r-md: 4px;
+  --r-lg: 6px;
+}
+
+:root {
+  --font: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --hover: color-mix(in srgb, var(--fg) 8%, transparent);
+  --shadow: 0 8px 24px rgb(0 0 0 / 0.4);
+}
+
+* { box-sizing: border-box; }
+html, body, #app { height: 100%; }
+html { background: var(--bg); }
+body { margin: 0; color: var(--fg); font: 13px/1.4 var(--font); }
+button, input, textarea { font: inherit; color: inherit; }
+button { background: none; border: 0; padding: 0; cursor: pointer; }
+.icon { width: 15px; height: 15px; }
+
+.app { container-type: inline-size; height: 100%; display: flex; flex-direction: column; }
+
+/* Timer bar */
+.bar { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 4px 6px;
+  background: var(--surface); border-bottom: 1px solid var(--border); transition: background 200ms; }
+.bar.done { background: color-mix(in srgb, var(--danger) 85%, black); border-color: var(--danger); }
+.bar.done .time, .bar.done .ctl { color: #fff; }
+.ctl { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--r-sm); color: var(--muted); }
+.ctl:hover { background: var(--hover); color: var(--fg); }
+.time { min-width: 5ch; text-align: center; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums;
+  padding: 0 4px; border-radius: var(--r-sm); border: 1px solid transparent; }
+.time:hover { border-color: var(--border); }
+.time.running { color: var(--accent); }
+.time-input { width: 6ch; text-align: center; font-size: 20px; font-weight: 600; background: var(--surface-2);
+  border: 1px solid var(--accent); border-radius: var(--r-sm); outline: none; padding: 0 4px; }
+.play { margin-left: 4px; }
+/* Narrow: fold −/+ away, keep the time and start/stop. */
+@container (max-width: 240px) {
+  .step { display: none; }
+  .time, .time-input { font-size: 18px; }
+}
+
+/* Conflict notice */
+.notice { margin: 6px; padding: 4px 6px; font-size: 11px; color: var(--accent); display: flex; gap: 6px; align-items: flex-start;
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg)); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: var(--r-sm); }
+.notice[hidden] { display: none; }
+.notice span { flex: 1; overflow-wrap: anywhere; }
+
+/* Notes */
+.notes { flex: 1; width: 100%; resize: none; border: 0; outline: none; padding: 8px 10px; background: transparent;
+  line-height: 1.55; tab-size: 2; white-space: pre-wrap; }
+.notes:focus { background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+
+/* Status line: save state · path · theme */
+.status { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--dim); padding: 2px 4px 2px 8px;
+  border-top: 1px solid var(--border); }
+.status .save.failed { color: var(--danger); }
+.status .path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.menu-wrap { position: relative; }
+.menu { position: absolute; right: 0; bottom: calc(100% + 4px); z-index: 10; min-width: 12rem; padding: 0.25rem; font-size: 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--shadow); }
+.menu[hidden] { display: none; }
+.menu-item { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.35rem 0.5rem; border-radius: var(--r-sm); text-align: left; color: var(--fg); }
+.menu-item:hover { background: var(--hover); }
+.menu-item.active { color: var(--accent); }
+.swatch { display: inline-flex; border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
+.swatch i { width: 8px; height: 14px; }

@@ -19,7 +19,7 @@ Personal tools stay elsewhere (claude-config).
 1. Skeleton, marketplace and plugin with `fortnightly-planning` and `learn` (the consolidated learn/plan/grill skill).
 2. `apps/atlassian-notes`, imported from `main` with its history kept via `git subtree`. `feat/docker` follows later.
 3. `apps/timeblock`, once its in-flight `ui-editing` work lands.
-4. Meet toolkit: a separate new project in `apps/`.
+4. `apps/meet-toolkit`: built 2026-11-01 (see `2026-11-01-meet-toolkit-design.md`).
 
 ## Before going public
 
