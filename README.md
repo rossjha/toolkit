@@ -25,7 +25,7 @@ Day files live in `days/` (gitignored). Set `TIMEBLOCK_DIR` to keep them elsewhe
 - **Categories**: the pencil next to the schedule totals edits `categories.md` (in your days folder). One line per category: `- tag: Label · colour · style`, with a theme colour name and `solid` or `hatched`. Removed tags on old days show grey.
 - **The eye button** (or `p`) hides the titles of personal blocks, for screen-sharing; the blocks stay. Your browser remembers the setting.
 - **The header pencil** (or `e`) opens the whole day as markdown. ⌘S/Ctrl+S saves, Esc cancels.
-- `←` / `→` change day, `t` goes back to today. The theme button (◐) picks any of the ten forge themes.
+- `←` / `→` change day, `t` goes back to today. The theme button (the swatch icon) picks any of the ten forge themes.
 
 ## Format
 

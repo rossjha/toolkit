@@ -15,7 +15,7 @@ import { DEFAULT_CATEGORIES, categoryColor, findCategory, parseCategories, type 
 import { indentLines } from "../shared/indent.ts";
 import { openBlockDialog } from "./dialog.ts";
 import { attachDrag, isDragging } from "./drag.ts";
-import { eye, eyeOff, h, markdown, pencil } from "./dom.ts";
+import { eye, eyeOff, h, markdown, pencil, swatch } from "./dom.ts";
 import { THEMES, applySavedTheme, currentTheme, saveTheme } from "./themes.ts";
 
 const SLOT_PX = 36; // height of 30 minutes on the timeline
@@ -316,10 +316,10 @@ function themePicker(): HTMLElement {
       ),
     );
   }
-  const btn = h("button", { class: "icon-btn", title: "Theme", onclick: (e: Event) => {
+  const btn = h("button", { class: "icon-btn", title: "Theme", "aria-label": "Choose theme", onclick: (e: Event) => {
     e.stopPropagation();
     menu.hidden = !menu.hidden;
-  } }, "◐");
+  } }, swatch());
   document.addEventListener("click", () => (menu.hidden = true), { once: true });
   return h("div", { class: "menu-wrap" }, btn, menu);
 }
