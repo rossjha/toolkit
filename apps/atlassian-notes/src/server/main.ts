@@ -10,7 +10,7 @@ import { ViewCache } from "./cache.ts";
 import { ConfigError, loadConfig, type Config } from "./config.ts";
 import { ensureDataDir, loadAnalysis, loadColumns, loadReadingConfig, loadViews } from "./configFiles.ts";
 import { createJiraClient, type JiraClient } from "./jira.ts";
-import { NotesStore } from "./notesStore.ts";
+import { keepTmpFilesUnder, NotesStore } from "./notesStore.ts";
 import { ReadingStore } from "./readingStore.ts";
 import { Refresher } from "./refresher.ts";
 import { createTicketFileSyncer, syncTicketFiles } from "./ticketFiles.ts";
@@ -41,6 +41,7 @@ async function main(): Promise<void> {
     }
     throw e;
   }
+  keepTmpFilesUnder(config.notesDir);
   await ensureDataDir(config.notesDir, config.defaultProject, path.join(root, "examples"));
 
   // analysis.yaml's extra fields and flag field join every Jira search. A broken file keeps the last good
@@ -154,7 +155,7 @@ async function main(): Promise<void> {
 
   await new Promise<void>((resolve, reject) => {
     app.server.once("error", reject);
-    app.server.listen(config.port, "127.0.0.1", resolve);
+    app.server.listen(config.port, config.host, resolve);
   });
   const url = `http://localhost:${config.port}/`;
   console.log(`atlassian-notes running at ${url}`);
