@@ -58,6 +58,7 @@ button { background: none; border: 0; padding: 0; }
 .divider { width: 1px; height: 1rem; background: var(--border); margin: 0 0.15rem; }
 .legend-edit { width: 1.4rem; height: 1.4rem; }
 .legend-edit .icon-btn-svg { width: 13px; height: 13px; }
+.priorities-edit-btn .icon-btn-svg { width: 14px; height: 14px; }
 .legend-item i { width: 10px; height: 10px; border-radius: 2px; background: color-mix(in srgb, var(--cat) 35%, transparent); border-left: 3px solid var(--cat); }
 
 .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 1.75rem; height: 1.75rem; border-radius: var(--r-md); color: var(--muted); cursor: pointer; font-size: 16px; }
@@ -84,8 +85,8 @@ button { background: none; border: 0; padding: 0; }
 
 /* The paper sheet: priorities and brain dump on the left, the day's timeline on the right. */
 .layout { display: grid; grid-template-columns: minmax(16rem, 2fr) 3fr; gap: 1rem; align-items: start; }
-@media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
 .side { display: flex; flex-direction: column; gap: 1rem; position: sticky; top: 0.75rem; }
+@media (max-width: 800px) { .layout { grid-template-columns: 1fr; } .side { position: static; } }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 0.75rem 0.9rem; }
 .label { margin: 0 0 0.6rem; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: var(--label-tracking); color: var(--muted); }
 .empty { margin: 0; color: var(--dim); }
@@ -98,8 +99,7 @@ button { background: none; border: 0; padding: 0; }
 .priorities li.done span:not(.count) { color: var(--muted); text-decoration: line-through; }
 
 .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
-.dump { display: block; width: 100%; margin: 0; white-space: pre-wrap; min-height: 10rem; padding: 0.4rem 0.5rem; border: 1px solid transparent; border-radius: var(--r-sm);
-  font: inherit; line-height: 1.5; background-image: radial-gradient(var(--border) 1px, transparent 0); background-size: 16px 16px; }
+.dump { display: block; width: 100%; margin: 0; white-space: pre-wrap; min-height: 10rem; padding: 0.4rem 0.5rem; border: 1px solid transparent; border-radius: var(--r-sm); font: inherit; line-height: 1.5; }
 .dump-view { cursor: text; }
 .dump-view:hover { border-color: var(--border); }
 .dump-view.empty { color: var(--dim); }

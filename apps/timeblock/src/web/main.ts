@@ -407,7 +407,7 @@ function priorities(day: Day): HTMLElement {
       h("h2", { class: "label" }, "Today's priorities"),
       editing
         ? h("span", { class: "text-muted hint" }, "saves as you type · Tab to nest · Esc to finish")
-        : h("button", { class: "icon-btn", title: "Edit priorities", onclick: () => startPriorities() }, pencil()),
+        : h("button", { class: "icon-btn priorities-edit-btn", title: "Edit priorities", onclick: () => startPriorities() }, pencil()),
     ),
     editing
       ? prioritiesEditor()
