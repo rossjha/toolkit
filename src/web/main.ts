@@ -4,11 +4,14 @@ import {
   isDate,
   layoutBlocks,
   parseDay,
+  sectionRange,
   setBrainDump,
+  setPriorities,
   togglePriority,
   type Day,
 } from "../shared/day.ts";
 import { categoryColor, findCategory, parseCategories, type Category } from "../shared/categories.ts";
+import { indentLines } from "../shared/indent.ts";
 import { eye, eyeOff, h, pencil } from "./dom.ts";
 import { THEMES, applySavedTheme, currentTheme, saveTheme } from "./themes.ts";
 
@@ -29,6 +32,8 @@ interface State {
   changedOnDisk: boolean;
   /** The brain dump being typed in place; while set, live updates refresh the file text but not the page. */
   dumpDraft: string | null;
+  /** The priorities being edited in place; handled exactly like the brain dump. */
+  prioritiesDraft: string | null;
   hidePersonal: boolean;
 }
 
@@ -51,6 +56,7 @@ const state: State = {
   categoriesText: "",
   changedOnDisk: false,
   dumpDraft: null,
+  prioritiesDraft: null,
   hidePersonal: storedFlag(HIDE_PERSONAL_KEY),
 };
 const app = document.getElementById("app")!;
@@ -212,19 +218,94 @@ function themePicker(): HTMLElement {
   return h("div", { class: "menu-wrap" }, btn, menu);
 }
 
+let prioritiesTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** The raw lines under ## Priorities (indentation intact), without the blank lines around them. */
+function prioritiesBody(markdown: string): string {
+  const lines = markdown.split("\n");
+  const range = sectionRange(lines, /^##\s+priorities\s*$/i);
+  return range ? lines.slice(range.head + 1, range.end).join("\n").replace(/^\s*\n/, "").trimEnd() : "";
+}
+
+/** Saves the priorities into the latest copy of the file, so edits elsewhere in it survive. */
+async function savePriorities(): Promise<void> {
+  clearTimeout(prioritiesTimer);
+  if (state.prioritiesDraft === null) return;
+  const next = setPriorities(state.markdown, state.prioritiesDraft);
+  if (next === state.markdown) return;
+  state.markdown = next;
+  await save(next);
+}
+
+function startPriorities(): void {
+  state.prioritiesDraft = prioritiesBody(state.markdown);
+  render();
+}
+
+function prioritiesEditor(): HTMLElement {
+  const ta = h("textarea", { class: "dump dump-edit priorities-edit", spellcheck: false, placeholder: "- [ ] Something that matters today" }) as HTMLTextAreaElement;
+  ta.value = state.prioritiesDraft!;
+  const grow = (): void => {
+    ta.style.height = "auto";
+    ta.style.height = `${ta.scrollHeight + 2}px`;
+  };
+  ta.addEventListener("input", () => {
+    state.prioritiesDraft = ta.value;
+    grow();
+    clearTimeout(prioritiesTimer);
+    prioritiesTimer = setTimeout(() => void savePriorities(), DUMP_SAVE_MS);
+  });
+  const finish = async (keep: boolean): Promise<void> => {
+    if (state.prioritiesDraft === null) return;
+    if (keep) await savePriorities();
+    clearTimeout(prioritiesTimer);
+    state.prioritiesDraft = null;
+    await load(state.date);
+  };
+  ta.addEventListener("blur", () => void finish(true));
+  ta.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" || ((e.metaKey || e.ctrlKey) && (e.key === "s" || e.key === "Enter"))) {
+      e.preventDefault();
+      ta.blur();
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      const r = indentLines(ta.value, ta.selectionStart, ta.selectionEnd, e.shiftKey);
+      ta.value = r.value;
+      ta.setSelectionRange(r.selStart, r.selEnd);
+      ta.dispatchEvent(new Event("input"));
+    }
+  });
+  queueMicrotask(() => {
+    grow();
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  });
+  return ta;
+}
+
 function priorities(day: Day): HTMLElement {
+  const editing = state.prioritiesDraft !== null;
   return h(
     "section",
     { class: "card" },
-    h("h2", { class: "label" }, "Today's priorities"),
-    day.priorities.length
+    h(
+      "div",
+      { class: "card-head" },
+      h("h2", { class: "label" }, "Today's priorities"),
+      editing
+        ? h("span", { class: "text-muted hint" }, "saves as you type · Tab to nest · Esc to finish")
+        : h("button", { class: "icon-btn", title: "Edit priorities", onclick: () => startPriorities() }, pencil()),
+    ),
+    editing
+      ? prioritiesEditor()
+      : day.priorities.length
       ? h(
           "ul",
           { class: "priorities" },
           ...day.priorities.map((p) =>
             h(
               "li",
-              { class: p.done ? "done" : "" },
+              { class: p.done ? "done" : "", style: `padding-left:${p.depth * 1.25}rem` },
               h("label", {},
                 h("input", {
                   type: "checkbox",
@@ -235,6 +316,7 @@ function priorities(day: Day): HTMLElement {
                   },
                 }),
                 h("span", {}, p.text),
+                p.total > 0 && h("span", { class: "text-muted hint count" }, `${p.doneCount}/${p.total}`),
               ),
             ),
           ),
@@ -508,7 +590,7 @@ function onCategoriesChanged(): void {
       });
   } else {
     void loadCategories().then(() => {
-      if (!state.editing && state.dumpDraft === null) render();
+      if (!state.editing && state.dumpDraft === null && state.prioritiesDraft === null) render();
     });
   }
 }
@@ -522,7 +604,7 @@ function connectLive(): void {
       return;
     }
     if (ev.type !== "day" || ev.date !== state.date) return;
-    if (state.dumpDraft !== null) {
+    if (state.dumpDraft !== null || state.prioritiesDraft !== null) {
       // Keep the text box (and its focus) as it is; just track the file so the next save merges into it.
       void fetch(`/api/day/${state.date}`)
         .then((r) => r.json() as Promise<{ markdown: string }>)
@@ -544,7 +626,7 @@ function connectLive(): void {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (state.editing || state.dumpDraft !== null || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (state.editing || state.dumpDraft !== null || state.prioritiesDraft !== null || e.metaKey || e.ctrlKey || e.altKey) return;
   if ((e.target as HTMLElement).closest("input, textarea, select, dialog")) return;
   if (e.key === "ArrowLeft") void load(addDays(state.date, -1));
   else if (e.key === "ArrowRight") void load(addDays(state.date, 1));
@@ -577,7 +659,7 @@ async function boot(): Promise<void> {
     const today = ((await (await fetch("/api/today")).json()) as { date: string }).date;
     const wasToday = state.date === state.today;
     state.today = today;
-    if (state.editing || state.dumpDraft !== null) return;
+    if (state.editing || state.dumpDraft !== null || state.prioritiesDraft !== null) return;
     if (wasToday && state.date !== today) await load(today);
     else render();
   }, 60_000);

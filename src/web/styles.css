@@ -133,3 +133,5 @@ button { background: none; border: 0; padding: 0; }
 .editor:focus { border-color: var(--accent); }
 
 @media (prefers-reduced-motion: reduce) { .block { transition: none; } }
+.priorities .count { margin-left: auto; padding-left: 0.5rem; }
+.priorities-edit { min-height: 5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
