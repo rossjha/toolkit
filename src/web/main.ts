@@ -1,6 +1,4 @@
 import {
-  CATEGORIES,
-  categoryFor,
   formatTime,
   insertBlock,
   isDate,
@@ -10,6 +8,7 @@ import {
   togglePriority,
   type Day,
 } from "../shared/day.ts";
+import { DEFAULT_CATEGORIES, categoryColor, findCategory } from "../shared/categories.ts";
 import { THEMES, applySavedTheme, currentTheme, saveTheme } from "./themes.ts";
 
 const SLOT_PX = 36; // height of 30 minutes on the timeline
@@ -136,7 +135,7 @@ function header(): HTMLElement {
     h(
       "div",
       { class: "legend" },
-      ...CATEGORIES.map((c) => h("span", { class: "legend-item", style: `--cat:${c.color}` }, h("i"), c.label)),
+      ...DEFAULT_CATEGORIES.map((c) => h("span", { class: "legend-item", style: `--cat:${categoryColor(c)}` }, h("i"), c.label)),
     ),
     h(
       "div",
@@ -347,7 +346,7 @@ function schedule(day: Day): HTMLElement {
   const isToday = day.date === state.today;
   const now = nowMinutes();
   for (const { block, lane, lanes } of layoutBlocks(day.blocks)) {
-    const cat = categoryFor(block.category);
+    const cat = findCategory(DEFAULT_CATEGORIES, block.category);
     const top = ((block.start - startMin) / 30) * SLOT_PX;
     const height = ((block.end - block.start) / 30) * SLOT_PX;
     const current = isToday && now >= block.start && now < block.end;
@@ -365,7 +364,7 @@ function schedule(day: Day): HTMLElement {
         "div",
         {
           class: `block cat-${block.category}${current ? " current" : ""}${past ? " past" : ""}${mins < 60 ? " short" : ""}${mins <= 15 ? " tiny" : ""}${hidden ? " private" : ""}${link ? " linked" : ""}`,
-          style: `--cat:${cat?.color ?? "var(--dim)"};top:${top}px;height:${height - 2}px;left:calc(var(--gutter) + (100% - var(--gutter)) * ${lane} / ${lanes});width:calc((100% - var(--gutter)) / ${lanes} - 4px)`,
+          style: `--cat:${categoryColor(cat)};top:${top}px;height:${height - 2}px;left:calc(var(--gutter) + (100% - var(--gutter)) * ${lane} / ${lanes});width:calc((100% - var(--gutter)) / ${lanes} - 4px)`,
           title: `${time} · ${label}${hidden ? "" : `\n${block.title}`}${link ? `\nClick to open ${block.url ? "the meeting link" : "Google Meet"} · double-click to edit` : "\nDouble-click to edit"}`,
           // Wait out a possible double-click so editing a meeting doesn't also open it.
           onclick: () => {
@@ -389,7 +388,7 @@ function schedule(day: Day): HTMLElement {
     grid.append(h("div", { class: "now", style: `top:${((now - startMin) / 30) * SLOT_PX}px` }));
   }
 
-  const totals = CATEGORIES.map((c) => ({
+  const totals = DEFAULT_CATEGORIES.map((c) => ({
     c,
     mins: day.blocks.filter((b) => b.category === c.id).reduce((n, b) => n + b.end - b.start, 0),
   })).filter((t) => t.mins);
@@ -405,7 +404,7 @@ function schedule(day: Day): HTMLElement {
         "div",
         { class: "totals" },
         ...totals.map((t) =>
-          h("span", { class: "legend-item", style: `--cat:${t.c.color}` }, h("i"), `${t.c.label} ${(t.mins / 60).toFixed(1).replace(/\.0$/, "")}h`),
+          h("span", { class: "legend-item", style: `--cat:${categoryColor(t.c)}` }, h("i"), `${t.c.label} ${(t.mins / 60).toFixed(1).replace(/\.0$/, "")}h`),
         ),
       ),
     ),
