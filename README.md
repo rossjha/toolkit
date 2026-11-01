@@ -8,6 +8,7 @@ Nothing personal or employer-specific lives here. Machine and job settings stay 
 | App | What it is |
 |---|---|
 | [`apps/atlassian-notes`](apps/atlassian-notes) | Local Jira refinement notes app |
+| [`apps/timeblock`](apps/timeblock) | Time-blocking day sheet from a markdown file per day |
 | [`apps/meet-toolkit`](apps/meet-toolkit) | Countdown timer plus markdown scratchpad to keep beside Google Meet |
 
 Each app keeps its own scripts. From the root, `npm test` and `npm run typecheck` run them across every app.
