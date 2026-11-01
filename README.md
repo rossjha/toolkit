@@ -15,13 +15,16 @@ Day files live in `days/` (gitignored). Set `TIMEBLOCK_DIR` to keep them elsewhe
 
 ## Using it
 
-- **Priorities** on the left: tick them off in the browser.
+- **Priorities** on the left: tick them off in the browser. The pencil beside the heading edits them inline: Tab / Shift+Tab indent a task under the one above, it autosaves, Esc finishes. A parent shows `done/total` of its sub-tasks.
 - **Brain dump**: click it (or press `b`) and type. It saves as you go; Esc or clicking away finishes. Only that section of the file changes.
-- **Schedule** on the right: meetings are solid blocks, your own time (focus, study, personal, admin, break) is hatched, each in its own theme colour. Clashes sit side by side. The red line is now; past blocks fade.
-- **Click a meeting** to open its Meet link (Google Meet's home page if the line has no link). Double-click any block to jump to its line in the editor.
-- **Click an empty half-hour** to add a block there; it opens the editor with the line slotted into time order, ready to finish.
+- **Schedule** on the right: each category has its own theme colour and is solid or hatched (by default meetings are solid, your own time hatched). Clashes sit side by side. The red line is now; past blocks fade.
+- **Click a meeting** to open its Meet link (Google Meet's home page if the line has no link).
+- **Double-click a block** for its details: title, category, times, video link, links, prep notes, and "push my blocks after this back by N minutes" (handy when a meeting overruns; calendar meetings never move). You can delete the block or open it in markdown from there.
+- **Click an empty half-hour** to add a block there; the same dialog opens, prefilled with that time.
+- **Drag a block** to move it (5-minute snap) or drag its bottom edge to resize. Meetings synced from Google Calendar can't be moved, retitled or deleted here: change them in Google Calendar and re-sync.
+- **Categories**: the pencil next to the schedule totals edits `categories.md` (in your days folder). One line per category: `- tag: Label · colour · style`, with a theme colour name and `solid` or `hatched`. Removed tags on old days show grey.
 - **The eye button** (or `p`) hides the titles of personal blocks, for screen-sharing; the blocks stay. Your browser remembers the setting.
-- **Edit** (or `e`) opens the whole day as markdown. ⌘S/Ctrl+S saves, Esc cancels.
+- **The header pencil** (or `e`) opens the whole day as markdown. ⌘S/Ctrl+S saves, Esc cancels.
 - `←` / `→` change day, `t` goes back to today. The theme button (◐) picks any of the ten forge themes.
 
 ## Format
@@ -32,9 +35,11 @@ Day files live in `days/` (gitignored). Set `TIMEBLOCK_DIR` to keep them elsewhe
 - 09:00-09:15 [meeting] Team standup
 - 09:30-11:00 [focus] Q1 hiring plan
 - 14:00-15:00 [study] Distributed systems reading
+  - [Chapter 5](https://example.com/ch5)
+  - Skim the consensus section first
 ```
 
-Categories: `meeting`, `focus`, `study`, `personal`, `admin`, `break`. See `examples/2026-10-29.md` for a full day and `CLAUDE.md` for the complete rules.
+Indented lines under a block are its links and prep notes; under a priority, an indented `- [ ]` is a sub-task. Categories live in `categories.md` (defaults: `meeting`, `focus`, `study`, `personal`, `admin`, `break`). See `examples/2026-10-29.md` for a full day and `CLAUDE.md` for the complete rules.
 
 ## With Claude
 

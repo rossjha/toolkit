@@ -19,24 +19,30 @@ end: 19     # optional: last hour shown (default 19)
 
 - [ ] Draft Q1 hiring plan
 - [x] Review PAY-412
+  - [ ] Check the migration
 
 ## Schedule
 
 - 09:00-09:15 [meeting] Team standup
 - 09:30-11:00 [focus] Q1 hiring plan
 - 12:00-12:45 [personal] Lunch and a walk
+- 14:00-15:00 [meeting] Design review https://meet.google.com/abc-defg-hij
+  - [Spec](https://example.com/spec)
+  - Bring the latency numbers
 
 ## Brain dump
 
 Free-form notes, any markdown.
 ```
 
-Schedule lines are `- HH:MM-HH:MM [category] Title`, 24-hour clock. Categories: `meeting` (other people's time: shown solid), `focus`, `study`, `personal`, `admin`, `break` (your own time: shown hatched). No category means `focus`. A link anywhere in a block's title (usually a Meet URL) becomes its click target. Blocks can overlap; they're drawn side by side. The timeline grows to fit blocks outside the start/end hours.
+Schedule lines are `- HH:MM-HH:MM [category] Title`, 24-hour clock. Categories come from `categories.md` in the days folder (next to the day files; the app creates it on first run). Read it to pick a tag: each line is `- tag: Label · colour · style`, and `[tag]` in a day file is the tag. Style `solid` is for other people's time (`meeting`), `hatched` for your own. The defaults are `meeting`, `focus`, `study`, `personal`, `admin`, `break`. No category means `focus`. A tag that isn't in `categories.md` (e.g. one since removed) renders grey; leave such lines alone. A link anywhere in a block's title (usually a Meet URL) becomes its click target. Blocks can overlap; they're drawn side by side. The timeline grows to fit blocks outside the start/end hours.
+
+Child lines: an indented line directly under a schedule line belongs to that block. A whole-line link (`- [label](url)` or a bare URL) is a link, anything else is a prep note. Priorities nest the same way: an indented `- [ ]` / `- [x]` line is a sub-task of the priority above it. Write two spaces per level; tabs and other consistent indents are read.
 
 ## When asked to change the day
 
 - Edit the file in place; keep the three `##` sections and their order. Don't reformat lines you weren't asked to touch.
-- Keep Schedule lines sorted by start time and zero-padded (`09:00`, not `9:00`).
+- Keep Schedule lines sorted by start time and zero-padded (`09:00`, not `9:00`). When moving a block, move its indented child lines with it.
 - "Move X to 3pm" keeps its duration. "Block out an hour for Y after lunch" means the first free slot after the `personal` lunch block. Say what you changed in one line, including any clash it creates.
 - Meetings someone mentions ("I've got a call with Sam at 2") are `[meeting]`; learning, reading and courses are `[study]`; deep work is `[focus]`.
 - Ticking a priority: change `[ ]` to `[x]`. Don't delete done ones.
@@ -49,9 +55,9 @@ The app knows nothing about calendars; you populate the day file from the Google
 - Fetch the day's events from the user's primary calendar, in their local time zone.
 - Each event becomes `- HH:MM-HH:MM [meeting] Title MEET_URL <!-- gcal:EVENT_ID -->`, where MEET_URL is the event's Google Meet link (`hangoutLink`, or the video entry point in its conference data), left out when there isn't one. The app strips the link from the title and opens it when the block is clicked; the comment is hidden in the app and is how you recognise your own lines next time.
 - Skip events the user declined, all-day events and working-location events. Calendar "Focus time" events become `[focus]`; "Out of office" becomes `[personal]`. An event with no other attendees is the user's own block: guess the category from its title (`[study]`, `[admin]`, `[focus]`…).
-- Re-syncing: update lines whose `gcal:` id still exists (time or title may have moved), add new events, and delete `gcal:` lines whose event is gone or now declined. Never touch lines without a `gcal:` marker; those are the user's own.
+- Re-syncing: update lines whose `gcal:` id still exists (time or title may have moved) in place, keeping any indented child lines under them; add new events; and delete `gcal:` lines whose event is gone or now declined, along with their child lines. Never touch lines without a `gcal:` marker; those are the user's own.
 - Keep the Schedule sorted. Afterwards, say in a line or two what was added, moved or removed, and point out any clash with the user's own blocks; don't move their blocks unless asked.
 
 ## Code
 
-Node ≥ 22.18 runs the server's `.ts` directly; `npm run build` compiles `src/web` + `src/shared` to `public/js` and inlines the CSS. `npm test` covers the parser (`src/shared/day.ts`). The themes in `src/web/themes.css` and `themes.ts` are copied verbatim from forge (via atlassian-notes); don't edit them, re-copy instead.
+Node ≥ 22.18 runs the server's `.ts` directly; `npm run build` compiles `src/web` + `src/shared` to `public/js` and inlines the CSS. `src/shared` holds the pure logic: `day.ts` (parser, including child lines and nested priorities), `schedule.ts` (add, retime, delete and push blocks in the file text, children kept with their block), `categories.ts` (the `categories.md` format and palette) and `indent.ts` (Tab / Shift+Tab for the priorities editor). `src/web` has the UI: `main.ts`, `dialog.ts` and `dialog-children.ts` (block dialog), `drag.ts` and `drag-range.ts` (drag and resize). `npm test` covers all of these plus the server (`test/*.test.ts`). The themes in `src/web/themes.css` and `themes.ts` are copied verbatim from forge (via atlassian-notes); don't edit them, re-copy instead.
