@@ -1,6 +1,5 @@
 import {
   formatTime,
-  insertBlock,
   isDate,
   layoutBlocks,
   parseDay,
@@ -8,10 +7,13 @@ import {
   setBrainDump,
   setPriorities,
   togglePriority,
+  type Block,
   type Day,
 } from "../shared/day.ts";
+import { deleteBlock, locateBlock, pushBlocks, snapshotBlock, upsertBlock, type Snapshot } from "../shared/schedule.ts";
 import { categoryColor, findCategory, parseCategories, type Category } from "../shared/categories.ts";
 import { indentLines } from "../shared/indent.ts";
+import { openBlockDialog } from "./dialog.ts";
 import { eye, eyeOff, h, pencil } from "./dom.ts";
 import { THEMES, applySavedTheme, currentTheme, saveTheme } from "./themes.ts";
 
@@ -132,11 +134,45 @@ function startEditingCategories(): void {
   render();
 }
 
-function addBlockAt(minutes: number): void {
-  const line = `- ${formatTime(minutes)}-${formatTime(minutes + 30)} [focus] `;
-  const { text, line: at } = insertBlock(state.markdown, line);
-  const caret = text.split("\n").slice(0, at + 1).join("\n").length;
-  startEditing(text, caret);
+/** Where the caret goes to land on `line` in the editor. */
+function caretAt(text: string, line: number): number {
+  return text.split("\n").slice(0, line + 1).join("\n").length;
+}
+
+/** Applies a dialog edit to the latest file text (not the text the dialog opened on) and saves it in one write. */
+async function writeBlock(next: (text: string) => { ok: true; text: string } | { ok: false; error: string }): Promise<string | null> {
+  const r = next(state.markdown);
+  if (!r.ok) return r.error;
+  if (r.text !== state.markdown) {
+    try {
+      await save(r.text);
+    } catch (e) {
+      return e instanceof Error ? e.message : String(e);
+    }
+  }
+  if (!state.editing && state.dumpDraft === null && state.prioritiesDraft === null) render();
+  return null;
+}
+
+/** The details dialog for `block`, or for a new block in `slot`. */
+function openDialog(block: Block | null, slot?: { start: number; end: number }): void {
+  const snap: Snapshot | null = block ? snapshotBlock(state.markdown, block.line) : null;
+  openBlockDialog({
+    block,
+    slot,
+    categories: state.categories,
+    onSave: (edit, pushMinutes) =>
+      writeBlock((text) => {
+        const r = upsertBlock(text, snap, edit);
+        return r.ok && pushMinutes ? { ok: true, text: pushBlocks(r.text, edit.fields.start, pushMinutes) } : r;
+      }),
+    onDelete: () => (snap ? writeBlock((text) => deleteBlock(text, snap)) : Promise.resolve(null)),
+    onOpenMarkdown: () => {
+      if (!block) return startEditing();
+      const line = snap ? locateBlock(state.markdown, snap) : -1;
+      startEditing(state.markdown, line === -1 ? undefined : caretAt(state.markdown, line));
+    },
+  });
 }
 
 // ---------- view ----------
@@ -419,7 +455,7 @@ function schedule(day: Day): HTMLElement {
           class: `slot${s % 2 ? " half" : ""}`,
           style: `top:${s * SLOT_PX}px;height:${SLOT_PX}px`,
           title: `Add a block at ${formatTime(minutes)}`,
-          onclick: () => addBlockAt(minutes),
+          onclick: () => openDialog(null, { start: minutes, end: minutes + 30 }),
         },
         s % 2 ? "" : h("span", { class: "hour" }, formatTime(minutes)),
       ),
@@ -457,8 +493,7 @@ function schedule(day: Day): HTMLElement {
           },
           ondblclick: () => {
             clearTimeout(clickTimer);
-            const caret = state.markdown.split("\n").slice(0, block.line + 1).join("\n").length;
-            startEditing(state.markdown, caret);
+            openDialog(block);
           },
         },
         h("span", { class: "block-time" }, time),
