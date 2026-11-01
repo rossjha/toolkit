@@ -52,6 +52,7 @@ button { background: none; border: 0; padding: 0; }
 .actions { display: flex; align-items: center; gap: 0.4rem; }
 
 .legend, .totals { display: flex; flex-wrap: wrap; gap: 0.75rem; font-size: 11px; color: var(--muted); }
+.totals { align-items: center; }
 .legend-item { display: inline-flex; align-items: center; gap: 0.35rem; }
 .legend-item i { width: 10px; height: 10px; border-radius: 2px; background: color-mix(in srgb, var(--cat) 35%, transparent); border-left: 3px solid var(--cat); }
 
@@ -120,8 +121,8 @@ button { background: none; border: 0; padding: 0; }
 .block.private .block-title { color: var(--muted); font-style: italic; font-weight: 400; }
 .icon-btn.on { color: var(--accent); }
 /* Meetings are other people's time: solid fill. Everything else is yours: hatched, so the two read apart at a glance. */
-.block.cat-meeting { background: color-mix(in srgb, var(--cat) 30%, var(--surface)); }
-.block:not(.cat-meeting) { background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--cat) 8%, transparent) 6px 12px); }
+.block.solid { background: color-mix(in srgb, var(--cat) 30%, var(--surface)); }
+.block:not(.solid) { background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--cat) 8%, transparent) 6px 12px); }
 .block.past { opacity: 0.55; }
 .block.current { outline: 1px solid var(--cat); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cat) 20%, transparent); }
 .now { position: absolute; left: calc(var(--gutter) - 6px); right: 0; height: 0; border-top: 2px solid var(--danger); z-index: 3; pointer-events: none; }
