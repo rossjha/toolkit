@@ -4,6 +4,7 @@
 import { formatTime, type Block } from "../shared/day.ts";
 import type { Category } from "../shared/categories.ts";
 import type { BlockEdit, BlockFields } from "../shared/schedule.ts";
+import { childEdits, loadedChildren } from "./dialog-children.ts";
 import { h, link, svg, trash } from "./dom.ts";
 
 export interface DialogOptions {
@@ -39,30 +40,13 @@ function duration(mins: number): string {
   return [hrs && `${hrs}h`, rest && `${rest}m`].filter(Boolean).join(" ");
 }
 
-/** The notes as the textarea shows them: one line each, two spaces per level below the first. */
-function notesText(block: Block | null): string {
-  return (block?.children ?? [])
-    .filter((c) => c.kind === "note")
-    .map((c) => `${"  ".repeat(Math.max(0, c.depth - 1))}${c.text}`)
-    .join("\n");
-}
-
-function loadedLinks(block: Block | null): { label: string; url: string }[] {
-  return (block?.children ?? []).filter((c) => c.kind === "link").map((c) => ({ label: c.label ?? c.text, url: c.url ?? c.text }));
-}
-
-function sameLinks(a: { label: string; url: string }[], b: { label: string; url: string }[]): boolean {
-  return a.length === b.length && a.every((l, i) => l.label === b[i].label && l.url === b[i].url);
-}
-
 export function openBlockDialog(opts: DialogOptions): void {
   const { block, categories } = opts;
   const calendar = !!block?.gcal;
   const start0 = block?.start ?? opts.slot?.start ?? 9 * 60;
   const end0 = block?.end ?? opts.slot?.end ?? start0 + 30;
   const category0 = block?.category ?? (categories.some((c) => c.id === DEFAULT_CATEGORY) ? DEFAULT_CATEGORY : categories[0]?.id ?? DEFAULT_CATEGORY);
-  const links0 = loadedLinks(block);
-  const notes0 = notesText(block);
+  const loaded = loadedChildren(block?.children ?? []);
 
   const title = h("input", { class: "field-input", type: "text", value: block?.title ?? "", placeholder: "What's this block for?", readonly: calendar }) as HTMLInputElement;
 
@@ -119,10 +103,10 @@ export function openBlockDialog(opts: DialogOptions): void {
     linkList.append(el);
     return row;
   };
-  links0.forEach((l) => addLink(l));
+  loaded.links.forEach((l) => addLink(l));
 
   const notes = h("textarea", { class: "field-input dialog-notes", rows: "4", spellcheck: false, placeholder: "Prep notes, one per line" }) as HTMLTextAreaElement;
-  notes.value = notes0;
+  notes.value = loaded.notes;
 
   const pushBy = h("input", { class: "field-input dialog-push-minutes", type: "number", min: "5", step: "5", value: String(DEFAULT_PUSH), "aria-label": "Minutes to push by" }) as HTMLInputElement;
   const error = h("div", { class: "error-bar", role: "alert", hidden: true });
@@ -147,13 +131,8 @@ export function openBlockDialog(opts: DialogOptions): void {
       const url = video.value.trim();
       fields = { start: t.start, end: t.end, category: category.value, title: title.value.trim(), ...(url && { url }) };
     }
-    const edit: BlockEdit = { fields };
-    const links = rows
-      .map((r) => ({ label: r.label.value.trim(), url: r.url.value.trim() }))
-      .filter((l) => l.url)
-      .map((l) => ({ label: l.label || l.url, url: l.url }));
-    if (!sameLinks(links, links0)) edit.links = links;
-    if (notes.value.trimEnd() !== notes0) edit.notes = notes.value;
+    const current = { links: rows.map((r) => ({ label: r.label.value, url: r.url.value })), notes: notes.value };
+    const edit: BlockEdit = { fields, ...childEdits(loaded, current) };
     return edit;
   };
 
