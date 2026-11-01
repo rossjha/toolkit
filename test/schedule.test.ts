@@ -196,3 +196,22 @@ test("delete the only block leaves a tidy section", () => {
   assert.ok(r.ok);
   assert.equal(r.text, "## Schedule\n\n## Brain dump\n");
 });
+
+test("locate ignores identical lines outside the Schedule", () => {
+  const text = "## Schedule\n\n- 11:00-12:00 B\n\n## Brain dump\n\n- 11:00-12:00 B\n";
+  const snap = snapshotBlock(text, 2);
+  const edited = text.replace("## Schedule\n\n- 11:00-12:00 B", "## Schedule\n\n- 12:30-13:30 B");
+  assert.equal(locateBlock(edited, snap), -1);
+  const gone = { ok: false, error: "This block is no longer in the file." };
+  assert.deepEqual(upsertBlock(edited, snap, { fields: { start: 660, end: 720, category: "focus", title: "B" } }), gone);
+  assert.deepEqual(deleteBlock(edited, snap), gone);
+  const moved = "## Brain dump\n\n- 11:00-12:00 B\n\n## Schedule\n\n- 09:00-09:30 A\n- 11:00-12:00 B\n";
+  assert.equal(locateBlock(moved, snap), 7);
+});
+
+test("delete refuses when children changed underneath", () => {
+  const withKid = example.replace("- 16:00-17:00 [focus] RFC comments", "- 16:00-17:00 [focus] RFC comments\n  - note a");
+  const snap = snapshotBlock(withKid, lineOf(withKid, "RFC comments"));
+  const added = withKid.replace("  - note a", "  - note a\n  - added by Claude");
+  assert.deepEqual(deleteBlock(added, snap), { ok: false, error: "This block changed in the file — reopen it." });
+});

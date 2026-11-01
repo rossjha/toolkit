@@ -232,6 +232,24 @@ export function sectionRange(lines: string[], name: RegExp): { head: number; end
 /** Adds a block line to the Schedule in start-time order (creating the section if it's missing). */
 export function insertBlock(text: string, blockLine: string): { text: string; line: number } {
   const lines = text.split("\n");
+  const m = BLOCK_RE.exec(blockLine.trim());
+  const line = placeBlockLines(lines, [blockLine], (m && parseTime(m[1])) ?? 0);
+  return { text: lines.join("\n"), line };
+}
+
+/** Start time of a Schedule block line; null for child lines and anything else. */
+export function blockStart(raw: string): number | null {
+  if (indentWidth(raw) > 0) return null;
+  const m = BLOCK_RE.exec(raw.trim());
+  return m ? parseTime(m[1]) : null;
+}
+
+/**
+ * Inserts a block line (plus any child lines) into `lines` in start-time order: a blank line under the heading and a
+ * blank line before the next heading. Blocks with the same start stay before it if they sit above `stableFrom`, after
+ * it otherwise (so a new block goes after them). Creates the Schedule section if it's missing. Returns the first line.
+ */
+export function placeBlockLines(lines: string[], group: string[], start: number, stableFrom = Infinity): number {
   let range = sectionRange(lines, /^##\s+schedule\s*$/i);
   if (!range) {
     const dump = lines.findIndex((l) => /^##\s+brain\s*dump/i.test(l.trim()));
@@ -239,29 +257,25 @@ export function insertBlock(text: string, blockLine: string): { text: string; li
     lines.splice(at, 0, "## Schedule", "");
     range = { head: at, end: at + 2 };
   }
-  const startOf = (l: string): number | null => {
-    const m = BLOCK_RE.exec(l.trim());
-    return m ? parseTime(m[1]) : null;
-  };
-  const mine = startOf(blockLine) ?? 0;
   let last = range.head;
   let at = -1;
   for (let i = range.head + 1; i < range.end; i++) {
     if (!lines[i].trim()) continue;
-    const t = startOf(lines[i]);
-    if (at === -1 && t !== null && t > mine) at = i;
+    const t = blockStart(lines[i]);
+    if (at === -1 && t !== null && (t > start || (t === start && i >= stableFrom))) at = i;
     last = i;
   }
   if (at !== -1) {
-    lines.splice(at, 0, blockLine);
-    return { text: lines.join("\n"), line: at };
+    lines.splice(at, 0, ...group);
+    return at;
   }
   // Last in the day: blank line under the heading, then the blocks, then a blank line before the next heading.
-  const add = last === range.head ? ["", blockLine] : [blockLine];
+  const add = last === range.head ? ["", ...group] : group;
   lines.splice(last + 1, 0, ...add);
-  at = last + add.length;
-  if (lines[at + 1] !== undefined && lines[at + 1].trim() !== "") lines.splice(at + 1, 0, "");
-  return { text: lines.join("\n"), line: at };
+  at = last + 1 + add.length - group.length;
+  const after = at + group.length;
+  if (lines[after] !== undefined && lines[after].trim() !== "") lines.splice(after, 0, "");
+  return at;
 }
 
 /** Replaces a section's body (or adds the section where `place` says), leaving the rest of the file alone. */

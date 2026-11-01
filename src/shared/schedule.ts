@@ -2,7 +2,7 @@
 // Each one touches only the affected block's own lines, plus the move that keeps the Schedule in start-time order;
 // every other line keeps every byte, because the same file is edited by hand and by Claude.
 
-import { BLOCK_RE, type Block, formatTime, indentWidth, parseDay, parseTime, sectionRange } from "./day.ts";
+import { type Block, blockStart, formatTime, indentWidth, parseDay, placeBlockLines, sectionRange } from "./day.ts";
 
 export interface BlockFields {
   start: number;
@@ -55,10 +55,12 @@ export function snapshotBlock(text: string, line: number): Snapshot {
   return { line, text: lines[line] ?? "", children: childLines(lines, line) };
 }
 
+/** Only Schedule block lines count, so an identical line elsewhere (say, pasted into Brain dump) is never picked up. */
 export function locateBlock(text: string, snap: Snapshot): number {
   const lines = text.split("\n");
-  if (lines[snap.line] === snap.text) return snap.line;
-  return lines.indexOf(snap.text);
+  const found = (i: number): boolean => lines[i] === snap.text && isScheduleBlock(lines, i);
+  if (found(snap.line)) return snap.line;
+  return lines.findIndex((_l, i) => found(i));
 }
 
 export function retimeBlock(text: string, line: number, start: number, end: number): string {
@@ -89,7 +91,7 @@ export function upsertBlock(text: string, snap: Snapshot | null, edit: BlockEdit
   const lines = text.split("\n");
   if (!snap) {
     const children = [...linkLines(edit.links ?? []), ...noteLines(edit.notes ?? "")];
-    const line = placeGroup(lines, [formatBlockLine(edit.fields), ...children], edit.fields.start, Infinity);
+    const line = placeBlockLines(lines, [formatBlockLine(edit.fields), ...children], edit.fields.start);
     return { ok: true, text: lines.join("\n"), line };
   }
   const at = locateBlock(text, snap);
@@ -122,6 +124,7 @@ export function deleteBlock(text: string, snap: Snapshot): EditResult {
   if (at === -1) return { ok: false, error: GONE };
   const parsed = parseGroup([lines[at]]);
   if (parsed?.gcal) return { ok: false, error: CALENDAR };
+  if (!sameLines(childLines(lines, at), snap.children)) return { ok: false, error: CHANGED };
   removeGroup(lines, at, groupEnd(lines, at));
   return { ok: true, text: lines.join("\n"), line: at };
 }
@@ -143,15 +146,9 @@ function clampRange(start: number, end: number): [number, number] {
   return [start, start + length];
 }
 
-function startOf(raw: string): number | null {
-  if (indentWidth(raw) > 0) return null;
-  const m = BLOCK_RE.exec(raw.trim());
-  return m ? parseTime(m[1]) : null;
-}
-
 function isScheduleBlock(lines: string[], line: number): boolean {
   const range = sectionRange(lines, SCHEDULE_RE);
-  return !!range && line > range.head && line < range.end && startOf(lines[line]) !== null;
+  return !!range && line > range.head && line < range.end && blockStart(lines[line]) !== null;
 }
 
 /** End (exclusive) of the block on `line` and its child lines; blank lines count only between children. */
@@ -203,7 +200,7 @@ function noteLines(notes: string): string[] {
 
 function blockStarts(lines: string[], from: number, to: number, step: 1 | -1): number | null {
   for (let i = from; step === 1 ? i < to : i > to; i += step) {
-    const t = startOf(lines[i]);
+    const t = blockStart(lines[i]);
     if (t !== null) return t;
   }
   return null;
@@ -219,44 +216,11 @@ function settle(lines: string[], line: number, start: number): number {
   if ((prev === null || prev <= start) && (next === null || start <= next)) return line;
   const group = lines.slice(line, end);
   removeGroup(lines, line, end);
-  return placeGroup(lines, group, start, line);
+  return placeBlockLines(lines, group, start, line);
 }
 
 /** Removes lines [from, end), collapsing the double blank line that can leave behind. */
 function removeGroup(lines: string[], from: number, end: number): void {
   lines.splice(from, end - from);
   if (from > 0 && lines[from - 1]?.trim() === "" && lines[from] !== undefined && lines[from].trim() === "") lines.splice(from, 1);
-}
-
-/**
- * Inserts a block group in start-time order with insertBlock's spacing (blank line under the heading, blank line
- * before the next heading). Blocks with the same start stay before it if they sit above `stableFrom`, after it
- * otherwise. Creates the Schedule section if it's missing. Returns the group's first line.
- */
-function placeGroup(lines: string[], group: string[], start: number, stableFrom: number): number {
-  let range = sectionRange(lines, SCHEDULE_RE);
-  if (!range) {
-    const dump = lines.findIndex((l) => /^##\s+brain\s*dump/i.test(l.trim()));
-    const at = dump === -1 ? lines.length : dump;
-    lines.splice(at, 0, "## Schedule", "");
-    range = { head: at, end: at + 2 };
-  }
-  let last = range.head;
-  let at = -1;
-  for (let i = range.head + 1; i < range.end; i++) {
-    if (!lines[i].trim()) continue;
-    const t = startOf(lines[i]);
-    if (at === -1 && t !== null && (t > start || (t === start && i >= stableFrom))) at = i;
-    last = i;
-  }
-  if (at !== -1) {
-    lines.splice(at, 0, ...group);
-    return at;
-  }
-  const add = last === range.head ? ["", ...group] : group;
-  lines.splice(last + 1, 0, ...add);
-  at = last + 1 + add.length - group.length;
-  const after = at + group.length;
-  if (lines[after] !== undefined && lines[after].trim() !== "") lines.splice(after, 0, "");
-  return at;
 }
