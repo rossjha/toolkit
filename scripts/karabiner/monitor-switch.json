@@ -1,0 +1,67 @@
+{
+  "title": "Monitor input switch",
+  "rules": [
+    {
+      "description": "Caps (Shift+Ctrl+Opt+Cmd) + 8/9/0 switches monitor input to USB-C / DisplayPort / HDMI",
+      "manipulators": [
+        {
+          "type": "basic",
+          "from": {
+            "key_code": "8",
+            "modifiers": {
+              "mandatory": [
+                "shift",
+                "control",
+                "option",
+                "command"
+              ]
+            }
+          },
+          "to": [
+            {
+              "shell_command": "~/scripts/tools/monitor-switch.sh usb-c"
+            }
+          ]
+        },
+        {
+          "type": "basic",
+          "from": {
+            "key_code": "9",
+            "modifiers": {
+              "mandatory": [
+                "shift",
+                "control",
+                "option",
+                "command"
+              ]
+            }
+          },
+          "to": [
+            {
+              "shell_command": "~/scripts/tools/monitor-switch.sh dp"
+            }
+          ]
+        },
+        {
+          "type": "basic",
+          "from": {
+            "key_code": "0",
+            "modifiers": {
+              "mandatory": [
+                "shift",
+                "control",
+                "option",
+                "command"
+              ]
+            }
+          },
+          "to": [
+            {
+              "shell_command": "~/scripts/tools/monitor-switch.sh hdmi"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

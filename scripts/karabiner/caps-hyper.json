@@ -1,0 +1,15 @@
+{
+  "title": "Caps Lock as hyper",
+  "rules": [
+    {
+      "description": "Caps Lock sends Shift+Ctrl+Opt+Cmd",
+      "manipulators": [
+        {
+          "type": "basic",
+          "from": { "key_code": "caps_lock", "modifiers": { "optional": ["any"] } },
+          "to": [{ "key_code": "left_shift", "modifiers": ["left_command", "left_control", "left_option"] }]
+        }
+      ]
+    }
+  ]
+}

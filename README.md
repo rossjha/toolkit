@@ -31,6 +31,16 @@ Install:
 
 On first run, each skill creates its settings file in `~/.config/tools/<skill>.md` from the `config.example.md` in its folder.
 
+## Scripts
+
+Shell scripts for macOS and Linux. `scripts/install.sh` links the folder to `~/scripts/tools`, sources `aliases.sh` from your shell rc file and sets up keyboard shortcuts. You can run it again safely.
+
+| Script | Use | Alias | Shortcut |
+|---|---|---|---|
+| `monitor-switch.sh usb-c\|dp\|hdmi` | Switches the monitor input over DDC/CI | `m1` / `m2` / `m3` | macOS: Caps+8/9/0 (Karabiner, Caps as Shift+Ctrl+Opt+Cmd) · Omarchy: Caps+8/9/0 (keyd, Caps as Super+Ctrl+Alt+Shift) |
+
+`monitor-switch.sh` needs a DDC tool: `brew install m1ddc` on macOS (it falls back to `betterdisplaycli`), and `ddcutil` on Linux (load `i2c-dev` and add yourself to the `i2c` group). On Linux, `install.sh` also installs keyd to make Caps Lock the same modifier set; this takes Caps away from Omarchy's Compose key, so set `kb_options = compose:ralt` in `~/.config/hypr/input.conf` if you use it. On macOS, turn on "Caps Lock as hyper" and "Monitor input switch" in Karabiner under Complex Modifications > Add predefined rule.
+
 ## Templates
 
 [`templates/obsidian`](templates/obsidian) holds Obsidian templates (fortnightly plan, meeting audit, slipbox permanent and literature notes). Copy them into a vault by hand.
