@@ -10,7 +10,7 @@ One skill, four modes, against a shared store of learning plans (location set in
 - **Grill** — Feynman-style interrogation, schedule-aware (Ghost Protocol's Day 1/4/11/25 stages)
 - **Debrief** — a 60-second cross-topic recall pulse-check
 
-Replaces the former `study-coach-plan`, `study-coach`, and `study-coach-grill` skills.
+Replaces the former `learn-plan`, `learn`, and `learn-grill` skills.
 </objective>
 
 <storage_config>
