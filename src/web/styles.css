@@ -89,7 +89,7 @@ button { background: none; border: 0; padding: 0; }
 .priorities li:last-child { border-bottom: 0; }
 .priorities label { display: flex; gap: 0.6rem; align-items: baseline; padding: 0.45rem 0; cursor: pointer; }
 .priorities input { accent-color: var(--accent); }
-.priorities li.done span { color: var(--muted); text-decoration: line-through; }
+.priorities li.done span:not(.count) { color: var(--muted); text-decoration: line-through; }
 
 .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
 .dump { display: block; width: 100%; margin: 0; white-space: pre-wrap; min-height: 10rem; padding: 0.4rem 0.5rem; border: 1px solid transparent; border-radius: var(--r-sm);
@@ -134,7 +134,7 @@ button { background: none; border: 0; padding: 0; }
 
 /* Your own blocks move and stretch on the timeline; calendar meetings are fixed, and their plain cursor says so. */
 .block.own { cursor: grab; user-select: none; -webkit-user-select: none; }
-.block.calendar { cursor: default; }
+.block.calendar:not(.linked) { cursor: default; }
 .resize-handle { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; cursor: ns-resize; }
 .resize-handle::after { content: ""; position: absolute; left: 50%; bottom: 2px; width: 1.5rem; height: 2px; margin-left: -0.75rem; border-radius: 1px; background: var(--cat); opacity: 0; transition: opacity var(--motion-hover) var(--motion-ease); }
 .block.own:hover .resize-handle::after, .block.dragging .resize-handle::after { opacity: 0.6; }

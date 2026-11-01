@@ -11,7 +11,7 @@ import {
   type Day,
 } from "../shared/day.ts";
 import { deleteBlock, locateBlock, pushBlocks, retimeBlock, snapshotBlock, upsertBlock, type Snapshot } from "../shared/schedule.ts";
-import { categoryColor, findCategory, parseCategories, type Category } from "../shared/categories.ts";
+import { DEFAULT_CATEGORIES, categoryColor, findCategory, parseCategories, type Category } from "../shared/categories.ts";
 import { indentLines } from "../shared/indent.ts";
 import { openBlockDialog } from "./dialog.ts";
 import { attachDrag, isDragging } from "./drag.ts";
@@ -38,6 +38,8 @@ interface State {
   /** The priorities being edited in place; handled exactly like the brain dump. */
   prioritiesDraft: string | null;
   hidePersonal: boolean;
+  /** A failed action to tell the user about (shown in the error bar until the next save or another day). */
+  error: string | null;
 }
 
 function storedFlag(key: string): boolean {
@@ -61,6 +63,7 @@ const state: State = {
   dumpDraft: null,
   prioritiesDraft: null,
   hidePersonal: storedFlag(HIDE_PERSONAL_KEY),
+  error: null,
 };
 const app = document.getElementById("app")!;
 
@@ -89,6 +92,7 @@ async function load(date: string): Promise<void> {
   const r = await fetch(`/api/day/${date}`);
   const body = (await r.json()) as { markdown: string; exists: boolean; error?: string };
   if (!r.ok) throw new Error(body.error ?? r.statusText);
+  if (date !== state.date) state.error = null;
   state.date = date;
   state.markdown = body.markdown;
   state.exists = body.exists;
@@ -102,6 +106,11 @@ async function save(text: string): Promise<void> {
   if (!r.ok) throw new Error(((await r.json()) as { error?: string }).error ?? r.statusText);
   state.markdown = text;
   state.exists = true;
+  state.error = null;
+}
+
+function message(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
 }
 
 async function loadCategories(): Promise<void> {
@@ -129,10 +138,33 @@ function startEditing(text = state.markdown, caret?: number): void {
   render();
 }
 
-function startEditingCategories(): void {
+/** Opens the categories editor on the file as it is now (never on defaults standing in for a file that failed to load). */
+async function startEditingCategories(): Promise<void> {
+  try {
+    await loadCategories();
+  } catch (e) {
+    state.error = `Couldn't load categories.md: ${message(e)}`;
+    return render();
+  }
   state.editing = { target: "categories", text: state.categoriesText };
   state.changedOnDisk = false;
   render();
+}
+
+/** Leaves the editor without saving, picking up any change made to the day while it was open. */
+function cancelEditor(): void {
+  state.editing = null;
+  void reload();
+}
+
+/** Reloads the day, showing a failure in the error bar rather than leaving it unhandled. */
+async function reload(): Promise<void> {
+  try {
+    await load(state.date);
+  } catch (e) {
+    state.error = message(e);
+    render();
+  }
 }
 
 /** Where the caret goes to land on `line` in the editor. */
@@ -141,35 +173,39 @@ function caretAt(text: string, line: number): number {
 }
 
 /** Applies a dialog edit to the latest file text (not the text the dialog opened on) and saves it in one write. */
-async function writeBlock(next: (text: string) => { ok: true; text: string } | { ok: false; error: string }): Promise<string | null> {
+async function writeBlock(date: string, next: (text: string) => { ok: true; text: string } | { ok: false; error: string }): Promise<string | null> {
+  if (state.date !== date) return "The day changed — reopen the block.";
   const r = next(state.markdown);
   if (!r.ok) return r.error;
   if (r.text !== state.markdown) {
     try {
       await save(r.text);
     } catch (e) {
-      return e instanceof Error ? e.message : String(e);
+      return message(e);
     }
   }
   if (!state.editing && state.dumpDraft === null && state.prioritiesDraft === null) render();
   return null;
 }
 
-/** The details dialog for `block`, or for a new block in `slot`. */
-function openDialog(block: Block | null, slot?: { start: number; end: number }): void {
-  const snap: Snapshot | null = block ? snapshotBlock(state.markdown, block.line) : null;
+/**
+ * The details dialog for `block` (with `snap`, its lines when the page was drawn), or for a new block in `slot`.
+ * The dialog belongs to the day it opened on: a save after moving to another day is refused.
+ */
+function openDialog(block: Block | null, snap: Snapshot | null, slot?: { start: number; end: number }): void {
+  const date = state.date;
   openBlockDialog({
     block,
     slot,
     categories: state.categories,
     onSave: (edit, pushMinutes) =>
-      writeBlock((text) => {
+      writeBlock(date, (text) => {
         const r = upsertBlock(text, snap, edit);
         return r.ok && pushMinutes ? { ok: true, text: pushBlocks(r.text, edit.fields.start, pushMinutes) } : r;
       }),
-    onDelete: () => (snap ? writeBlock((text) => deleteBlock(text, snap)) : Promise.resolve(null)),
+    onDelete: () => (snap ? writeBlock(date, (text) => deleteBlock(text, snap)) : Promise.resolve(null)),
     onOpenMarkdown: () => {
-      if (!block) return startEditing();
+      if (!block || state.date !== date) return startEditing();
       const line = snap ? locateBlock(state.markdown, snap) : -1;
       startEditing(state.markdown, line === -1 ? undefined : caretAt(state.markdown, line));
     },
@@ -181,8 +217,13 @@ function openDialog(block: Block | null, slot?: { start: number; end: number }):
  * drawn (a live reload during the drag refreshes the text but not the page), and the drop is dropped if the day changed.
  */
 async function dropBlock(snap: Snapshot, date: string, start: number, end: number): Promise<void> {
-  const line = state.date === date ? locateBlock(state.markdown, snap) : -1;
-  const next = line === -1 ? state.markdown : retimeBlock(state.markdown, line, start, end);
+  if (state.date !== date) return afterDrag();
+  const line = locateBlock(state.markdown, snap);
+  if (line === -1) {
+    state.error = "This block changed in the file — the move wasn't saved.";
+    return afterDrag();
+  }
+  const next = retimeBlock(state.markdown, line, start, end);
   if (next === state.markdown) return afterDrag();
   const before = state.markdown;
   state.markdown = next; // show the drop straight away rather than after the round trip
@@ -190,9 +231,10 @@ async function dropBlock(snap: Snapshot, date: string, start: number, end: numbe
   try {
     await save(next);
   } catch (e) {
-    console.error(e);
     if (state.markdown === next) state.markdown = before;
-    await load(state.date);
+    await reload();
+    state.error = `The move wasn't saved: ${message(e)}`;
+    afterDrag();
   }
 }
 
@@ -225,7 +267,7 @@ function header(): HTMLElement {
     h(
       "div",
       { class: "actions" },
-      state.editing && h("button", { class: "btn", onclick: () => ((state.editing = null), render()) }, "Cancel"),
+      state.editing && h("button", { class: "btn", onclick: () => cancelEditor() }, "Cancel"),
       state.editing
         ? h("button", { class: "btn btn-primary", onclick: () => void saveEditor() }, "Save")
         : h("button", { class: "icon-btn", title: "Edit the day's markdown (E)", onclick: () => startEditing() }, pencil()),
@@ -281,6 +323,8 @@ function themePicker(): HTMLElement {
 }
 
 let prioritiesTimer: ReturnType<typeof setTimeout> | undefined;
+/** The priorities body as last opened or saved; finishing without a change since then writes nothing. */
+let prioritiesSaved = "";
 
 /** The raw lines under ## Priorities (indentation intact), without the blank lines around them. */
 function prioritiesBody(markdown: string): string {
@@ -292,15 +336,20 @@ function prioritiesBody(markdown: string): string {
 /** Saves the priorities into the latest copy of the file, so edits elsewhere in it survive. */
 async function savePriorities(): Promise<void> {
   clearTimeout(prioritiesTimer);
-  if (state.prioritiesDraft === null) return;
-  const next = setPriorities(state.markdown, state.prioritiesDraft);
-  if (next === state.markdown) return;
+  const draft = state.prioritiesDraft;
+  if (draft === null || draft === prioritiesSaved) return;
+  const next = setPriorities(state.markdown, draft);
+  if (next === state.markdown) {
+    prioritiesSaved = draft;
+    return;
+  }
   state.markdown = next;
   await save(next);
+  prioritiesSaved = draft;
 }
 
 function startPriorities(): void {
-  state.prioritiesDraft = prioritiesBody(state.markdown);
+  state.prioritiesDraft = prioritiesSaved = prioritiesBody(state.markdown);
   render();
 }
 
@@ -388,15 +437,22 @@ function priorities(day: Day): HTMLElement {
 }
 
 let dumpTimer: ReturnType<typeof setTimeout> | undefined;
+/** The brain dump as last opened or saved; finishing without a change since then writes nothing. */
+let dumpSaved = "";
 
 /** Saves the brain dump into the latest copy of the file, so edits elsewhere in it (Claude, the editor) survive. */
 async function saveDump(): Promise<void> {
   clearTimeout(dumpTimer);
-  if (state.dumpDraft === null) return;
-  const next = setBrainDump(state.markdown, state.dumpDraft);
-  if (next === state.markdown) return;
+  const draft = state.dumpDraft;
+  if (draft === null || draft === dumpSaved) return;
+  const next = setBrainDump(state.markdown, draft);
+  if (next === state.markdown) {
+    dumpSaved = draft;
+    return;
+  }
   state.markdown = next; // before the request, so a click elsewhere (a checkbox, a slot) builds on it
   await save(next);
+  dumpSaved = draft;
 }
 
 function brainDump(day: Day): HTMLElement {
@@ -463,7 +519,7 @@ function brainDump(day: Day): HTMLElement {
 }
 
 function startDump(current: string): void {
-  state.dumpDraft = current;
+  state.dumpDraft = dumpSaved = current;
   render();
 }
 
@@ -481,7 +537,7 @@ function schedule(day: Day): HTMLElement {
           class: `slot${s % 2 ? " half" : ""}`,
           style: `top:${s * SLOT_PX}px;height:${SLOT_PX}px`,
           title: `Add a block at ${formatTime(minutes)}`,
-          onclick: () => openDialog(null, { start: minutes, end: minutes + 30 }),
+          onclick: () => openDialog(null, null, { start: minutes, end: minutes + 30 }),
         },
         s % 2 ? "" : h("span", { class: "hour" }, formatTime(minutes)),
       ),
@@ -504,6 +560,8 @@ function schedule(day: Day): HTMLElement {
     const link = block.url ?? (block.category === "meeting" ? "https://meet.google.com/" : undefined);
     const time = `${formatTime(block.start)}–${formatTime(block.end)}`;
     const own = !block.gcal;
+    // The block's lines as drawn: the dialog and a drag find it again by these, even if the file moved on since.
+    const snap = snapshotBlock(state.markdown, block.line);
     let clickTimer: ReturnType<typeof setTimeout> | undefined;
     const timeEl = h("span", { class: "block-time" }, time);
     const el = h(
@@ -520,7 +578,7 @@ function schedule(day: Day): HTMLElement {
         },
         ondblclick: () => {
           clearTimeout(clickTimer);
-          openDialog(block);
+          openDialog(block, snap);
         },
       },
       timeEl,
@@ -529,7 +587,6 @@ function schedule(day: Day): HTMLElement {
     if (own) {
       const handle = h("div", { class: "resize-handle", "aria-hidden": "true" });
       el.append(handle);
-      const snap = snapshotBlock(state.markdown, block.line);
       const date = state.date;
       attachDrag(el, handle, {
         start: block.start,
@@ -570,7 +627,7 @@ function schedule(day: Day): HTMLElement {
         ...totals.map((t) =>
           h("span", { class: "legend-item", style: `--cat:${categoryColor(t.c)}` }, h("i"), `${t.c.label} ${(t.mins / 60).toFixed(1).replace(/\.0$/, "")}h`),
         ),
-        h("button", { class: "icon-btn", title: "Edit categories", onclick: () => startEditingCategories() }, pencil()),
+        h("button", { class: "icon-btn", title: "Edit categories", onclick: () => void startEditingCategories() }, pencil()),
       ),
     ),
     grid,
@@ -592,8 +649,7 @@ function editor(): HTMLElement {
       e.preventDefault();
       void saveEditor();
     } else if (e.key === "Escape") {
-      state.editing = null;
-      render();
+      cancelEditor();
     }
   });
   queueMicrotask(() => {
@@ -619,7 +675,7 @@ function editor(): HTMLElement {
             onclick: () =>
               void (target === "day"
                 ? load(state.date).then(() => startEditing())
-                : loadCategories().then(() => startEditingCategories())),
+                : startEditingCategories()),
           },
           "Load the new version",
         ),
@@ -638,8 +694,12 @@ function editor(): HTMLElement {
 
 async function saveEditor(): Promise<void> {
   if (!state.editing) return;
-  if (state.editing.target === "categories") await saveCategories(state.editing.text);
-  else await save(state.editing.text);
+  if (state.editing.target === "categories") {
+    await saveCategories(state.editing.text);
+    state.editing = null;
+    return reload(); // the day may have changed while the categories were open
+  }
+  await save(state.editing.text);
   state.editing = null;
   render();
 }
@@ -648,7 +708,7 @@ function render(): void {
   if (isDragging()) return; // the page is redrawn when the drag ends (afterDrag), so the block under the pointer stays put
   const day = parseDay(state.date, state.markdown);
   app.replaceChildren(header());
-  const warnings = [...day.warnings, ...state.categoryWarnings];
+  const warnings = [...(state.error ? [state.error] : []), ...day.warnings, ...state.categoryWarnings];
   if (warnings.length && !state.editing) app.append(h("div", { class: "error-bar" }, warnings.join("\n")));
   app.append(
     state.editing
@@ -701,8 +761,13 @@ function connectLive(): void {
             render();
           }
         });
+    } else if (state.editing?.target === "categories") {
+      // The page isn't showing the day, but the next action on it must build on the file as it is now.
+      void fetch(`/api/day/${state.date}`)
+        .then((r) => r.json() as Promise<{ markdown: string }>)
+        .then((b) => (state.markdown = b.markdown));
     } else if (!state.editing) {
-      void load(state.date);
+      void reload();
     }
   };
 }
@@ -733,7 +798,12 @@ async function boot(): Promise<void> {
   applySavedTheme();
   state.today = ((await (await fetch("/api/today")).json()) as { date: string }).date;
   const d = location.hash.slice(1);
-  await loadCategories();
+  try {
+    await loadCategories();
+  } catch (e) {
+    state.categories = [...DEFAULT_CATEGORIES];
+    state.categoryWarnings = [`Couldn't load categories.md (${message(e)}); showing the default categories.`];
+  }
   await load(isDate(d) ? d : state.today);
   connectLive();
   // Keep the now-line moving and roll over to the new day at midnight.
