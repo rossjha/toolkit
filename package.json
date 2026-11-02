@@ -11,5 +11,9 @@
   "scripts": {
     "test": "npm test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "overrides": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   }
 }
