@@ -67,7 +67,11 @@ function updateBar(): void {
   time.textContent = formatClock(remaining(timer, now));
   time.classList.toggle("running", running);
   bar.classList.toggle("done", remaining(timer, now) <= 0);
-  play.replaceChildren(icon(running ? "pause" : "play"));
+  // Swap the icon only on a change: replacing it on every tick would swallow a click that lands on it.
+  if (play.dataset.running !== String(running)) {
+    play.dataset.running = String(running);
+    play.replaceChildren(icon(running ? "pause" : "play"));
+  }
   if (running && tick === undefined) tick = window.setInterval(updateBar, 250);
   if (!running && tick !== undefined) {
     clearInterval(tick);

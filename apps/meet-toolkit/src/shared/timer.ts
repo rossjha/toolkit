@@ -29,16 +29,16 @@ export function stop(t: TimerState, now: number): TimerState {
   return { ...t, remainingS: remaining(t, now), endAt: null };
 }
 
-/** Moves the remaining time by deltaS. Adding time after time's up resumes a timer that was running. */
+/** Moves the remaining time by deltaS. Never starts the timer: a countdown that ran out counts as stopped. */
 export function adjust(t: TimerState, deltaS: number, now: number): TimerState {
   const left = Math.max(0, remaining(t, now) + deltaS);
-  return t.endAt === null ? { ...t, remainingS: left } : { ...t, remainingS: left, endAt: now + left * 1000 };
+  return isRunning(t, now) ? { ...t, remainingS: left, endAt: now + left * 1000 } : { ...t, remainingS: left, endAt: null };
 }
 
-/** A typed time: on a stopped timer it becomes the new duration too; on a running one it only changes what's left. */
+/** A typed time: on a stopped (or run-out) timer it becomes the new duration too; on a running one it only changes what's left. */
 export function setRemaining(t: TimerState, s: number, now: number): TimerState {
   const left = Math.max(0, s);
-  if (t.endAt === null) return { durationS: left, remainingS: left, endAt: null };
+  if (!isRunning(t, now)) return { durationS: left, remainingS: left, endAt: null };
   return { ...t, remainingS: left, endAt: now + left * 1000 };
 }
 

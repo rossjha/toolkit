@@ -26,11 +26,24 @@ test("adjust never goes below zero", () => {
   assert.equal(remaining(adjust(initialTimer(120), -300, 0), 0), 0);
 });
 
-test("adding time after time's up resumes the countdown", () => {
+test("adjusting a stopped timer leaves it stopped", () => {
+  const t = adjust(initialTimer(1800), 300, 0);
+  assert.equal(remaining(t, 60_000), 2100);
+  assert.equal(isRunning(t, 60_000), false);
+});
+
+test("adding time after time's up does not restart the countdown", () => {
   const expired = start(initialTimer(60), 0);
   const t = adjust(expired, 300, 120_000);
-  assert.equal(remaining(t, 120_000), 300);
-  assert.equal(isRunning(t, 120_000), true);
+  assert.equal(remaining(t, 180_000), 300);
+  assert.equal(isRunning(t, 120_000), false);
+});
+
+test("typing a time after time's up does not restart the countdown", () => {
+  const t = setRemaining(start(initialTimer(60), 0), 1620, 120_000);
+  assert.equal(t.durationS, 1620);
+  assert.equal(remaining(t, 180_000), 1620);
+  assert.equal(isRunning(t, 120_000), false);
 });
 
 test("setRemaining on a stopped timer also sets the duration", () => {
