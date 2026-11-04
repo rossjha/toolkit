@@ -1,7 +1,7 @@
 # atlassian-notes in a container. See "Run with Docker" in README.md; compose.yaml mounts your config and notes.
 # No secrets or notes are baked in: .dockerignore keeps .env files out, and both folders are mounted at run time.
 
-FROM node:22-slim AS build
+FROM node:26-slim AS build
 WORKDIR /app
 # The packed zip ships a lockfile; inside the tools monorepo the lockfile is at the repo root, so fall back to install.
 COPY package.json package-lock.json* ./
@@ -9,7 +9,7 @@ RUN if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-f
 COPY . .
 RUN npm run build && npm prune --omit=dev
 
-FROM node:22-slim
+FROM node:26-slim
 WORKDIR /app
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
