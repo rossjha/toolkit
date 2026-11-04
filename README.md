@@ -1,4 +1,4 @@
-# tools
+# toolkit
 
 Portable work tools: apps and Claude Code skills that move between machines and jobs.
 Nothing personal or employer-specific lives here. Machine and job settings stay in `~/.config/tools/`.
@@ -25,7 +25,7 @@ One plugin, `tools`, holds every skill:
 Install:
 
 ```
-/plugin marketplace add rossjha/tools
+/plugin marketplace add rossjha/toolkit
 /plugin install tools@tools
 ```
 
