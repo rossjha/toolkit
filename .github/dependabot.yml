@@ -1,0 +1,21 @@
+# Weekly dependency updates. Security fixes also arrive as they're published
+# (Dependabot security updates are on in the repo settings).
+version: 2
+updates:
+  # One lockfile at the root covers every app in apps/ (npm workspaces).
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # Base images for the apps that run in Docker.
+  - package-ecosystem: docker
+    directories:
+      - /apps/atlassian-notes
+      - /apps/meet-toolkit
+    schedule:
+      interval: weekly
