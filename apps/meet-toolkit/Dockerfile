@@ -1,6 +1,6 @@
 # meet-toolkit in a container. See "Run with Docker" in README.md; compose.yaml mounts your notes folder.
 
-FROM node:22-slim AS build
+FROM node:26-slim AS build
 WORKDIR /app
 # Inside the tools monorepo the lockfile is at the repo root, so fall back to install when there isn't one here.
 COPY package.json package-lock.json* ./
@@ -8,7 +8,7 @@ RUN if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-f
 COPY . .
 RUN npm run build && npm prune --omit=dev
 
-FROM node:22-slim
+FROM node:26-slim
 WORKDIR /app
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
