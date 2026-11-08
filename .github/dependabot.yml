@@ -12,10 +12,11 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
 
-  # Base images for the apps that run in Docker.
+  # Base images for each app (all run in Docker).
   - package-ecosystem: docker
     directories:
       - /apps/atlassian-notes
       - /apps/meet-toolkit
+      - /apps/timeblock
     schedule:
       interval: weekly
