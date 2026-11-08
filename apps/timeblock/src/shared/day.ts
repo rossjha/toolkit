@@ -2,6 +2,13 @@
 // Parsing is forgiving: a line we can't read is shown as a warning, never dropped from the file.
 
 export const DEFAULT_CATEGORY = "focus";
+
+/** Today in this machine's time zone, as YYYY-MM-DD. The browser's answer is the one that counts: the server may run
+ * in a container on UTC. */
+export function localToday(now = new Date()): string {
+  const off = now.getTimezoneOffset() * 60_000;
+  return new Date(now.getTime() - off).toISOString().slice(0, 10);
+}
 export const DEFAULT_START_HOUR = 7;
 export const DEFAULT_END_HOUR = 19;
 

@@ -2,6 +2,7 @@ import {
   formatTime,
   isDate,
   layoutBlocks,
+  localToday,
   parseDay,
   sectionRange,
   setBrainDump,
@@ -89,7 +90,7 @@ function nowMinutes(): number {
 }
 
 async function load(date: string): Promise<void> {
-  const r = await fetch(`/api/day/${date}`);
+  const r = await fetch(`/api/day/${date}?today=${date === state.today ? 1 : 0}`);
   const body = (await r.json()) as { markdown: string; exists: boolean; error?: string };
   if (!r.ok) throw new Error(body.error ?? r.statusText);
   if (date !== state.date) state.error = null;
@@ -797,7 +798,7 @@ window.addEventListener("hashchange", () => {
 
 async function boot(): Promise<void> {
   applySavedTheme();
-  state.today = ((await (await fetch("/api/today")).json()) as { date: string }).date;
+  state.today = localToday(); // the browser's clock: the server may run in a container on UTC
   const d = location.hash.slice(1);
   try {
     await loadCategories();
@@ -809,7 +810,7 @@ async function boot(): Promise<void> {
   connectLive();
   // Keep the now-line moving and roll over to the new day at midnight.
   setInterval(async () => {
-    const today = ((await (await fetch("/api/today")).json()) as { date: string }).date;
+    const today = localToday();
     const wasToday = state.date === state.today;
     state.today = today;
     if (state.editing || state.dumpDraft !== null || state.prioritiesDraft !== null) return;

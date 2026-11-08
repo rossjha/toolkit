@@ -11,6 +11,7 @@ assertNodeVersion(); // first statement: a clear message instead of an obscure f
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const daysDir = path.resolve(process.env.TIMEBLOCK_DIR ?? path.join(root, "days"));
 const port = Number(process.env.PORT ?? 4318);
+const host = process.env.HOST || "127.0.0.1"; // the Docker image sets 0.0.0.0; compose publishes it on 127.0.0.1 only
 
 function openUrl(url: string): void {
   const [cmd, args] =
@@ -25,7 +26,7 @@ function openUrl(url: string): void {
 fs.mkdirSync(daysDir, { recursive: true });
 const app = createApp({ daysDir, publicDir: path.join(root, "public") });
 const server = http.createServer(app.handle);
-server.listen(port, "127.0.0.1", () => {
+server.listen(port, host, () => {
   const url = `http://timeblock.localhost:${port}`;
   console.log(`timeblock on ${url} — day files in ${daysDir}`);
   if (process.env.OPEN_BROWSER !== "false") openUrl(url);

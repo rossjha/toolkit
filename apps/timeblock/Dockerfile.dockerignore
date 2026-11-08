@@ -1,0 +1,14 @@
+# Next to the Dockerfile, so it applies with either build context (the repo root or this folder); hence the **/ patterns.
+**/.git
+**/.superpowers
+**/node_modules
+**/public/js
+**/public/app.css
+**/.env
+**/.env.*
+**/.DS_Store
+# Your day files are mounted at run time, never baked into the image.
+**/days
+# Building from the repo root: leave out the other apps.
+apps/*
+!apps/timeblock

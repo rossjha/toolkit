@@ -3,7 +3,7 @@ import fsp from "node:fs/promises";
 import type http from "node:http";
 import path from "node:path";
 import { DEFAULT_CATEGORIES, formatCategories } from "../shared/categories.ts";
-import { emptyDay, isDate } from "../shared/day.ts";
+import { emptyDay, isDate, localToday } from "../shared/day.ts";
 
 const DEBOUNCE_MS = 150;
 const MAX_BODY = 1024 * 1024;
@@ -20,11 +20,6 @@ export interface AppOptions {
   publicDir: string;
 }
 
-/** Today in the machine's own time zone, as YYYY-MM-DD. */
-export function localToday(now = new Date()): string {
-  const off = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - off).toISOString().slice(0, 10);
-}
 
 async function readBody(req: http.IncomingMessage): Promise<string> {
   let size = 0;
@@ -115,8 +110,10 @@ export function createApp(opts: AppOptions): { handle: http.RequestListener; clo
           } catch (e) {
             if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
           }
-          // Today's file is created on first look, so Claude always has a file to edit.
-          if (date === localToday()) {
+          // Today's file is created on first look, so Claude always has a file to edit. The page says which day is
+          // today (?today=1), since a server in a container runs on UTC; without it, the server's own date decides.
+          const isToday = url.searchParams.has("today") ? url.searchParams.get("today") === "1" : date === localToday();
+          if (isToday) {
             await writeAtomic(dayFile(date), emptyDay(date));
             return send(200, { date, markdown: emptyDay(date), exists: true });
           }

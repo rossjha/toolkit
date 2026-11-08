@@ -4,3 +4,5 @@ public/app.css
 # Your day files stay on your machine (set TIMEBLOCK_DIR to keep them elsewhere).
 days/
 .superpowers/
+# Docker-only settings (compose.yaml)
+.env

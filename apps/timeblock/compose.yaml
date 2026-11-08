@@ -1,0 +1,26 @@
+# `docker compose up -d` runs timeblock in the background at http://timeblock.localhost:4318 (this Mac only).
+# Your day files stay on the Mac: ./days (or TIMEBLOCK_DIR) is mounted into the container, and edits from either side
+# show up in the page straight away.
+#
+# Optional settings go in a .env file next to this one:
+#   TIMEBLOCK_DIR=/Users/you/Documents/days   # if your day files aren't in ./days
+#   PORT=4400                                 # if 4318 is taken
+
+services:
+  app:
+    # Built from the repo root so npm ci uses the root lockfile.
+    build:
+      context: ../..
+      dockerfile: apps/timeblock/Dockerfile
+      args:
+        APP: apps/timeblock
+    image: timeblock
+    init: true
+    restart: unless-stopped
+    environment:
+      PORT: ${PORT:-4318}
+      TIMEBLOCK_DIR: ${TIMEBLOCK_DIR:-/app/apps/timeblock/days}
+    ports:
+      - "127.0.0.1:${PORT:-4318}:${PORT:-4318}"
+    volumes:
+      - ${TIMEBLOCK_DIR:-./days}:${TIMEBLOCK_DIR:-/app/apps/timeblock/days}

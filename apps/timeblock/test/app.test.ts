@@ -7,6 +7,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { createApp } from "../src/server/app.ts";
 import { DEFAULT_CATEGORIES, formatCategories } from "../src/shared/categories.ts";
+import { localToday } from "../src/shared/day.ts";
 
 async function withApp(fn: (base: string, daysDir: string) => Promise<void>): Promise<void> {
   const daysDir = fs.mkdtempSync(path.join(os.tmpdir(), "timeblock-days-"));
@@ -52,4 +53,27 @@ test("an empty categories file stays empty", () =>
 test("categories.md is not a day", () =>
   withApp(async (base) => {
     assert.equal((await fetch(`${base}/api/day/categories`)).status, 400);
+  }));
+
+test("a missing day the page calls today is created, so Claude has a file to edit", () =>
+  withApp(async (base, daysDir) => {
+    const body = (await (await fetch(`${base}/api/day/2031-01-02?today=1`)).json()) as { exists: boolean };
+    assert.equal(body.exists, true);
+    assert.ok(fs.existsSync(path.join(daysDir, "2031-01-02.md")));
+  }));
+
+test("a missing day the page says isn't today is shown but not created, even if it's the server's today", () =>
+  withApp(async (base, daysDir) => {
+    const serverToday = localToday();
+    const body = (await (await fetch(`${base}/api/day/${serverToday}?today=0`)).json()) as { exists: boolean };
+    assert.equal(body.exists, false);
+    assert.ok(!fs.existsSync(path.join(daysDir, `${serverToday}.md`)));
+  }));
+
+test("without ?today the server's own date decides, as before", () =>
+  withApp(async (base, daysDir) => {
+    await fetch(`${base}/api/day/${localToday()}`);
+    assert.ok(fs.existsSync(path.join(daysDir, `${localToday()}.md`)));
+    const other = (await (await fetch(`${base}/api/day/2031-01-03`)).json()) as { exists: boolean };
+    assert.equal(other.exists, false);
   }));
