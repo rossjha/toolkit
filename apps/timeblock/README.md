@@ -4,14 +4,19 @@ A local time-blocking day sheet, styled with the forge themes from atlassian-not
 
 ## Run
 
-Requires Node 22.18 or newer.
+Needs [Docker Desktop](https://www.docker.com/products/docker-desktop/). In this folder:
 
 ```sh
-npm install
-npm start      # builds, starts on http://timeblock.localhost:4318 and opens your browser
+docker compose up -d --build   # start, or update after a git pull: http://timeblock.localhost:4318
+docker compose down            # stop
+docker compose logs -f         # logs
 ```
 
-Day files live in `days/` (gitignored). Set `TIMEBLOCK_DIR` to keep them elsewhere, `PORT` to change the port, `OPEN_BROWSER=false` to stop it opening a tab.
+The app runs in the background and restarts with Docker Desktop. With Node installed, `npm run up`, `npm run down` and `npm run logs` do the same as the three lines above.
+
+Day files live in `days/` (gitignored), which stays on your Mac and is mounted into the container, so edits from Claude or your editor show up in the page straight away. To keep them elsewhere, put `TIMEBLOCK_DIR=/path/to/folder` in a `.env` file next to `compose.yaml`; `PORT` works there too.
+
+Without Docker (Node 22.18 or newer): `npm install`, then `npm start`, which builds, starts and opens your browser. Set `TIMEBLOCK_DIR`, `PORT` or `OPEN_BROWSER=false` in the environment. Don't run both at once.
 
 ## Using it
 

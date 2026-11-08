@@ -10,7 +10,10 @@
   },
   "scripts": {
     "test": "npm test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "up": "npm run up --workspaces",
+    "down": "npm run down --workspaces",
+    "status": "docker compose ls"
   },
   "overrides": {
     "react": "^19.3.1",

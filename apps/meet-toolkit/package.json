@@ -10,7 +10,10 @@
     "build": "tsc -p tsconfig.web.json && node scripts/build-css.ts",
     "start": "npm run build && node src/server/main.ts",
     "test": "node --test \"test/**/*.test.ts\"",
-    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.web.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.web.json --noEmit",
+    "up": "docker compose up -d --build",
+    "down": "docker compose down",
+    "logs": "docker compose logs -f"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

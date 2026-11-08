@@ -12,7 +12,10 @@
     "test": "node --test \"test/**/*.test.ts\"",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.web.json --noEmit && tsc -p tsconfig.scratchpad.json",
     "setup": "node scripts/setup.ts",
-    "pack": "node scripts/pack.ts"
+    "pack": "node scripts/pack.ts",
+    "up": "docker compose up -d --build",
+    "down": "docker compose down",
+    "logs": "docker compose logs -f"
   },
   "devDependencies": {
     "@excalidraw/excalidraw": "^0.18.1",

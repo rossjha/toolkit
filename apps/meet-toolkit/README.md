@@ -4,22 +4,19 @@ A narrow panel to keep next to a Google Meet tab: a countdown for the meeting at
 
 ## Run
 
-Requires Node 22.18 or newer.
+Needs [Docker Desktop](https://www.docker.com/products/docker-desktop/). In this folder:
 
 ```sh
-npm install
-npm start      # builds, starts on http://meet.localhost:4319 and opens your browser
+docker compose up -d --build   # start, or update after a git pull: http://meet.localhost:4319
+docker compose down            # stop
+docker compose logs -f         # logs
 ```
 
-Notes go to `~/meet-toolkit/meet-toolkit-scratchpad.md`. Set `MEET_SCRATCHPAD` to use another file (a leading `~` works), `PORT` to change the port, and `OPEN_BROWSER=false` to stop it opening a tab. The file and its folder are created if they don't exist.
+The app runs in the background and restarts with Docker Desktop. With Node installed, `npm run up`, `npm run down` and `npm run logs` do the same as the three lines above.
 
-## Run with Docker
+Notes go to `~/meet-toolkit/meet-toolkit-scratchpad.md`, which stays on your Mac: its folder is mounted into the container at the same path. To keep the scratchpad somewhere else, put `MEET_DIR=/path/to/folder` in a `.env` file next to `compose.yaml`; the file inside it is `meet-toolkit-scratchpad.md`. `PORT` works there too.
 
-```sh
-docker compose up -d     # http://meet.localhost:4319, restarts with Docker Desktop
-```
-
-To keep the scratchpad somewhere else, put `MEET_DIR=/path/to/folder` in a `.env` file next to `compose.yaml`. That folder is mounted at the same path, and the file inside it is `meet-toolkit-scratchpad.md`. `PORT` works there too. To update: `docker compose up -d --build`. To stop: `docker compose down`.
+Without Docker (Node 22.18 or newer): `npm install`, then `npm start`, which builds, starts and opens your browser. Set `MEET_SCRATCHPAD` to use another file (a leading `~` works), `PORT` to change the port, and `OPEN_BROWSER=false` to stop it opening a tab. Don't run both at once.
 
 ## Using it
 
