@@ -1,22 +1,25 @@
-# meet-toolkit in a container. See "Run with Docker" in README.md; compose.yaml mounts your notes folder.
+# meet-toolkit in a container. See "Run" in README.md; compose.yaml mounts your notes folder.
+# compose.yaml builds from the tools repo root with APP=apps/meet-toolkit, so npm ci installs from the root lockfile.
+# APP=. builds this folder on its own, which needs a package-lock.json here.
 
 FROM node:26-slim AS build
+ARG APP=.
 WORKDIR /app
-# Inside the tools monorepo the lockfile is at the repo root, so fall back to install when there isn't one here.
-COPY package.json package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
-COPY . .
-RUN npm run build && npm prune --omit=dev
+COPY package.json package-lock.json ./
+COPY ${APP}/package.json ${APP}/
+RUN if [ "$APP" = . ]; then npm ci; else npm ci -w "$APP"; fi
+COPY ${APP} ${APP}
+RUN cd "$APP" && npm run build
+RUN npm prune --omit=dev
 
 FROM node:26-slim
-WORKDIR /app
+ARG APP=.
+WORKDIR /app/${APP}
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     OPEN_BROWSER=false
-COPY --from=build /app/package.json ./
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/src ./src
-COPY --from=build /app/public ./public
+# The whole pruned tree: the root node_modules plus the app, including any app-level node_modules npm created.
+COPY --from=build /app /app
 USER node
 EXPOSE 4319
 CMD ["node", "src/server/main.ts"]

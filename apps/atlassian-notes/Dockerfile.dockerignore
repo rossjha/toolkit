@@ -1,12 +1,17 @@
-.git
-.superpowers
-node_modules
-dist
-public/js
-public/app.css
-public/vendor
-.env
-.env.*
-!.env.example
-*.zip
-.DS_Store
+# Next to the Dockerfile, so it applies with either build context (the repo root or this folder); hence the **/ patterns.
+**/.git
+**/.superpowers
+**/node_modules
+**/dist
+**/public/js
+**/public/app.css
+**/public/vendor
+**/.env
+**/.env.*
+!**/.env.example
+**/*.zip
+**/.DS_Store
+# Building from the repo root: leave out the other apps. (No other root-only entries: from the zip, the context is
+# this folder, and a pattern like "scripts" would drop the app's own scripts/.)
+apps/*
+!apps/atlassian-notes

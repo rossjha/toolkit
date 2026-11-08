@@ -7,7 +7,12 @@
 
 services:
   app:
-    build: .
+    # Built from the repo root so npm ci uses the root lockfile.
+    build:
+      context: ../..
+      dockerfile: apps/meet-toolkit/Dockerfile
+      args:
+        APP: apps/meet-toolkit
     image: meet-toolkit
     init: true
     restart: unless-stopped

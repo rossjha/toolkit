@@ -1,6 +1,11 @@
-node_modules
-public/js
-public/app.css
-.env
-.env.*
-.DS_Store
+# Next to the Dockerfile, so it applies with either build context (the repo root or this folder); hence the **/ patterns.
+**/.git
+**/node_modules
+**/public/js
+**/public/app.css
+**/.env
+**/.env.*
+**/.DS_Store
+# Building from the repo root: leave out the other apps.
+apps/*
+!apps/meet-toolkit

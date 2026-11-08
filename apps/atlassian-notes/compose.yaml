@@ -9,7 +9,13 @@
 
 services:
   app:
-    build: .
+    # Built from the repo root so npm ci uses the root lockfile and its overrides. The packed zip swaps this for
+    # `build: .` (see scripts/pack.ts), where the zip's own lockfile is used.
+    build:
+      context: ../..
+      dockerfile: apps/atlassian-notes/Dockerfile
+      args:
+        APP: apps/atlassian-notes
     image: atlassian-notes
     init: true
     restart: unless-stopped
