@@ -14,9 +14,11 @@ import {
 import { deleteBlock, locateBlock, pushBlocks, retimeBlock, snapshotBlock, upsertBlock, type Snapshot } from "../shared/schedule.ts";
 import { DEFAULT_CATEGORIES, categoryColor, findCategory, parseCategories, type Category } from "../shared/categories.ts";
 import { indentLines } from "../shared/indent.ts";
+import { parseSettings, type Snippet, type Zone } from "../shared/settings.ts";
+import { checkTimePanel } from "./check-time.ts";
 import { openBlockDialog } from "./dialog.ts";
 import { attachDrag, isDragging } from "./drag.ts";
-import { eye, eyeOff, h, markdown, pencil, swatch } from "./dom.ts";
+import { eye, eyeOff, globe, h, markdown, pencil, swatch } from "./dom.ts";
 import { THEMES, applySavedTheme, currentTheme, saveTheme } from "./themes.ts";
 
 const SLOT_PX = 36; // height of 30 minutes on the timeline
@@ -39,6 +41,10 @@ interface State {
   /** The priorities being edited in place; handled exactly like the brain dump. */
   prioritiesDraft: string | null;
   hidePersonal: boolean;
+  /** From ~/.config/tools/timeblock.md; both empty when there's no such file. */
+  zones: Zone[];
+  snippets: Snippet[];
+  settingsWarnings: string[];
   /** A failed action to tell the user about (shown in the error bar until the next save or another day). */
   error: string | null;
 }
@@ -64,6 +70,9 @@ const state: State = {
   dumpDraft: null,
   prioritiesDraft: null,
   hidePersonal: storedFlag(HIDE_PERSONAL_KEY),
+  zones: [],
+  snippets: [],
+  settingsWarnings: [],
   error: null,
 };
 const app = document.getElementById("app")!;
@@ -123,6 +132,20 @@ async function loadCategories(): Promise<void> {
   state.categories = parsed.categories;
   state.categoryWarnings = parsed.warnings;
 }
+
+async function loadSettings(): Promise<void> {
+  const r = await fetch("/api/settings");
+  const body = (await r.json()) as { markdown: string; error?: string };
+  if (!r.ok) throw new Error(body.error ?? r.statusText);
+  const parsed = parseSettings(body.markdown);
+  state.zones = parsed.zones;
+  state.snippets = parsed.snippets;
+  state.settingsWarnings = parsed.warnings;
+}
+
+// Lives outside render() so a redraw (every minute, or on a file change) never loses what you typed into it.
+const checkTime = checkTimePanel();
+document.body.append(checkTime.el);
 
 async function saveCategories(text: string): Promise<void> {
   const r = await fetch("/api/categories", { method: "PUT", body: text });
@@ -270,6 +293,21 @@ function header(): HTMLElement {
       "div",
       { class: "actions" },
       h("span", { class: "divider", "aria-hidden": "true" }),
+      state.zones.length > 0 &&
+        h(
+          "button",
+          {
+            class: `icon-btn${checkTime.isOpen() ? " on" : ""}`,
+            title: "Check time (z)",
+            "aria-label": "Check time",
+            "aria-expanded": checkTime.isOpen() ? "true" : "false",
+            onclick: (e: Event) => {
+              e.stopPropagation();
+              checkTime.toggle(e.currentTarget as HTMLElement);
+            },
+          },
+          globe(),
+        ),
       state.editing && h("button", { class: "btn", onclick: () => cancelEditor() }, "Cancel"),
       state.editing
         ? h("button", { class: "btn btn-primary", onclick: () => void saveEditor() }, "Save")
@@ -518,12 +556,77 @@ function brainDump(day: Day): HTMLElement {
     { class: "card grow" },
     h("div", { class: "card-head" }, h("h2", { class: "label" }, "Brain dump"), editing && h("span", { class: "text-muted hint" }, "saves as you type · Esc to finish")),
     body,
+    state.snippets.length > 0 && snippets(),
+  );
+}
+
+async function copyText(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // Clipboard API refused (e.g. the page isn't focused): fall back to a hidden text box.
+    const ta = h("textarea", { style: "position:fixed;opacity:0" }) as HTMLTextAreaElement;
+    ta.value = text;
+    document.body.append(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    if (!ok) throw new Error("the browser blocked copying");
+  }
+}
+
+/** Tags under the brain dump; clicking one copies its text. */
+function snippets(): HTMLElement {
+  return h(
+    "div",
+    { class: "snippets" },
+    h("span", { class: "snippets-label" }, "Snippets"),
+    ...state.snippets.map((sn) => {
+      const name = h("span", {}, sn.name);
+      const btn = h(
+        "button",
+        {
+          class: "snippet",
+          "aria-label": `Copy snippet: ${sn.name}`,
+          onclick: () => {
+            copyText(sn.text).then(
+              () => {
+                btn.classList.add("copied");
+                name.textContent = "Copied";
+                setTimeout(() => {
+                  btn.classList.remove("copied");
+                  name.textContent = sn.name;
+                }, 1200);
+              },
+              (e) => {
+                state.error = `Couldn't copy "${sn.name}": ${message(e)}`;
+                render();
+              },
+            );
+          },
+        },
+        name,
+        h("span", { class: "snippet-preview", "aria-hidden": "true" }, sn.text),
+      );
+      return btn;
+    }),
   );
 }
 
 function startDump(current: string): void {
   state.dumpDraft = dumpSaved = current;
   render();
+}
+
+/** The hour on the timeline; with time zones set, hovering it shows that hour in each of them. */
+function hourLabel(date: string, minutes: number): HTMLElement {
+  const label = formatTime(minutes);
+  if (!state.zones.length) return h("span", { class: "hour" }, label);
+  // The timeline is in the browser's own time, so this is that hour on the viewed day, wherever the zones are.
+  const [y, mo, d] = date.split("-").map(Number);
+  const ms = new Date(y, mo - 1, d, 0, minutes).getTime();
+  // title="" stops the slot's own "Add a block" tooltip appearing on top of this one.
+  return h("span", { class: "hour has-zones", title: "" }, label, h("span", { class: "zone-tip", role: "tooltip" }, ...checkTime.rows(ms, date)));
 }
 
 function schedule(day: Day): HTMLElement {
@@ -542,7 +645,7 @@ function schedule(day: Day): HTMLElement {
           title: `Add a block at ${formatTime(minutes)}`,
           onclick: () => openDialog(null, null, { start: minutes, end: minutes + 30 }),
         },
-        s % 2 ? "" : h("span", { class: "hour" }, formatTime(minutes)),
+        s % 2 ? "" : hourLabel(day.date, minutes),
       ),
     );
   }
@@ -708,9 +811,10 @@ async function saveEditor(): Promise<void> {
 
 function render(): void {
   if (isDragging()) return; // the page is redrawn when the drag ends (afterDrag), so the block under the pointer stays put
+  checkTime.update(state.zones, state.date); // first: the schedule's hour tips use the same zones
   const day = parseDay(state.date, state.markdown);
   app.replaceChildren(header());
-  const warnings = [...(state.error ? [state.error] : []), ...day.warnings, ...state.categoryWarnings];
+  const warnings = [...(state.error ? [state.error] : []), ...day.warnings, ...state.categoryWarnings, ...state.settingsWarnings];
   if (warnings.length && !state.editing) app.append(h("div", { class: "error-bar" }, warnings.join("\n")));
   app.append(
     state.editing
@@ -747,6 +851,14 @@ function connectLive(): void {
       onCategoriesChanged();
       return;
     }
+    if (ev.type === "settings") {
+      void loadSettings()
+        .catch((e) => (state.settingsWarnings = [`Couldn't load timeblock.md: ${message(e)}`]))
+        .then(() => {
+          if (!state.editing && state.dumpDraft === null && state.prioritiesDraft === null) render();
+        });
+      return;
+    }
     if (ev.type !== "day" || ev.date !== state.date) return;
     if (state.dumpDraft !== null || state.prioritiesDraft !== null) {
       // Keep the text box (and its focus) as it is; just track the file so the next save merges into it.
@@ -781,6 +893,7 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "ArrowRight") void load(addDays(state.date, 1));
   else if (e.key === "t") void load(state.today);
   else if (e.key === "p") togglePersonal();
+  else if (e.key === "z" && state.zones.length) checkTime.toggle(document.querySelector<HTMLElement>("[aria-label='Check time']"));
   else if (e.key === "b") {
     e.preventDefault();
     startDump(parseDay(state.date, state.markdown).brainDump);
@@ -806,6 +919,7 @@ async function boot(): Promise<void> {
     state.categories = [...DEFAULT_CATEGORIES];
     state.categoryWarnings = [`Couldn't load categories.md (${message(e)}); showing the default categories.`];
   }
+  await loadSettings().catch((e) => (state.settingsWarnings = [`Couldn't load timeblock.md: ${message(e)}`]));
   await load(isDate(d) ? d : state.today);
   connectLive();
   // Keep the now-line moving and roll over to the new day at midnight.

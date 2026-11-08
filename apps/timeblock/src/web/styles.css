@@ -185,3 +185,30 @@ body.drag-resize, body.drag-resize * { cursor: ns-resize !important; }
 .dialog .btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.8rem; }
 .btn-danger { color: var(--danger); }
 .btn-danger:hover:not(:disabled) { border-color: var(--danger); }
+
+/* Snippets: tags under the brain dump that copy their text; hovering shows it. */
+.snippets { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px dashed var(--border); }
+.snippets-label { font-size: 10px; text-transform: uppercase; letter-spacing: var(--label-tracking); color: var(--dim); margin-right: 0.2rem; }
+.snippet { position: relative; padding: 0.1rem 0.55rem; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--bg); font-size: 12px; cursor: copy; }
+.snippet:hover, .snippet:focus-visible { border-color: var(--accent); color: var(--accent); }
+.snippet.copied { border-color: var(--success); color: var(--success); }
+.snippet-preview { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 10; width: max-content; max-width: 22rem; padding: 0.5rem 0.65rem; white-space: pre-wrap; text-align: left; font-size: 11px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--shadow); pointer-events: none; }
+.snippet:hover .snippet-preview, .snippet:focus-visible .snippet-preview { display: block; }
+
+/* Time zones: the hover tip on each hour, and the "Check time" panel share the same rows. */
+.hour.has-zones { position: relative; cursor: help; }
+.hour.has-zones:hover { color: var(--accent); }
+.zone-tip { display: none; position: absolute; left: calc(100% - 0.5rem); top: -0.35rem; z-index: 10; padding: 0.35rem 0.6rem; color: var(--fg); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--shadow); pointer-events: none; }
+.hour.has-zones:hover .zone-tip { display: block; }
+.zone-row { display: grid; grid-template-columns: minmax(6rem, auto) 3.2rem 4.6rem minmax(5.5rem, auto); align-items: baseline; gap: 0.6rem; padding: 0.15rem 0; white-space: nowrap; font-size: 12px; }
+.zone-name { color: var(--muted); }
+.zone-row.ic .zone-name { color: var(--fg); }
+.zone-time { font-weight: 600; font-variant-numeric: tabular-nums; }
+.zone-row.ic .zone-time { color: var(--accent); }
+.zone-offset, .zone-shift { font-size: 11px; color: var(--dim); }
+.zone-shift { color: var(--warn); }
+.check-time { position: absolute; z-index: 20; padding: 0.6rem 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--shadow); }
+.check-time-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+.check-time-input, .check-time-select { padding: 0.15rem 0.35rem; color: var(--fg); background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-sm); font: inherit; color-scheme: light dark; }
+.check-time-input:focus, .check-time-select:focus { outline: none; border-color: var(--accent); }
+.check-time .link-btn { margin-left: auto; }

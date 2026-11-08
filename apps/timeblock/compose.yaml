@@ -5,6 +5,8 @@
 # Optional settings go in a .env file next to this one:
 #   TIMEBLOCK_DIR=/Users/you/Documents/days   # if your day files aren't in ./days
 #   PORT=4400                                 # if 4318 is taken
+#
+# Time zones and snippets come from ~/.config/tools/timeblock.md, mounted read-only (see config.example.md).
 
 services:
   app:
@@ -20,7 +22,9 @@ services:
     environment:
       PORT: ${PORT:-4318}
       TIMEBLOCK_DIR: ${TIMEBLOCK_DIR:-/app/apps/timeblock/days}
+      TIMEBLOCK_SETTINGS: /config/timeblock.md
     ports:
       - "127.0.0.1:${PORT:-4318}:${PORT:-4318}"
     volumes:
       - ${TIMEBLOCK_DIR:-./days}:${TIMEBLOCK_DIR:-/app/apps/timeblock/days}
+      - ${HOME}/.config/tools:/config:ro

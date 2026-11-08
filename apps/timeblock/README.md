@@ -28,6 +28,10 @@ Without Docker (Node 22.18 or newer): `npm install`, then `npm start`, which bui
 - **Click an empty half-hour** to add a block there; the same dialog opens, prefilled with that time.
 - **Drag a block** to move it (5-minute snap) or drag its bottom edge to resize. Meetings synced from Google Calendar can't be moved, retitled or deleted here: change them in Google Calendar and re-sync.
 - **Categories**: the pencil next to the schedule totals edits `categories.md` (in your days folder). One line per category: `- tag: Label · colour · style`, with a theme colour name and `solid` or `hatched`. Removed tags on old days show grey.
+- **Time zones and snippets** come from `~/.config/tools/timeblock.md`, which lives on your Mac outside this repo. Copy `config.example.md` there to start; without it, neither feature shows. Edits show up in the page straight away.
+  - **Hover an hour** on the schedule to see it in each of your zones, with each zone's offset from GMT (so you can tell GMT from GMT+1) and a flag when it's the next or previous day there.
+  - **Check time** (the globe button, or `z`): type any time, pick which zone it's in, and see it everywhere, on the day you're viewing. "now" fills in the current time.
+  - **Snippets** sit under the brain dump. Hover one to preview it; click to copy it, ready to paste into Slack or anywhere else.
 - **The eye button** (or `p`) hides the titles of personal blocks, for screen-sharing; the blocks stay. Your browser remembers the setting.
 - **The header pencil** (or `e`) opens the whole day as markdown. ⌘S/Ctrl+S saves, Esc cancels.
 - `←` / `→` change day, `t` goes back to today. The theme button (the swatch icon) picks any of the ten forge themes.

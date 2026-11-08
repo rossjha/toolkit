@@ -18,6 +18,8 @@ const TYPES: Record<string, string> = {
 export interface AppOptions {
   daysDir: string;
   publicDir: string;
+  /** Time zones and snippets (~/.config/tools/timeblock.md). Read only; it may not exist. */
+  settingsFile: string;
 }
 
 
@@ -42,7 +44,7 @@ async function writeAtomic(file: string, text: string): Promise<void> {
 export function createApp(opts: AppOptions): { handle: http.RequestListener; close: () => void } {
   const clients = new Set<http.ServerResponse>();
   const timers = new Map<string, NodeJS.Timeout>();
-  const broadcast = (event: { type: "day"; date: string } | { type: "categories" }): void => {
+  const broadcast = (event: { type: "day"; date: string } | { type: "categories" } | { type: "settings" }): void => {
     for (const res of clients) res.write(`data: ${JSON.stringify(event)}\n\n`);
   };
 
@@ -59,6 +61,17 @@ export function createApp(opts: AppOptions): { handle: http.RequestListener; clo
     if (m) debounce(m[1], { type: "day", date: m[1] });
   });
   watcher.on("error", (e) => console.error("file watcher error:", e.message));
+  // The settings file lives elsewhere. Watch its folder, not the file, so an editor's save-by-rename is still seen.
+  const settingsName = path.basename(opts.settingsFile);
+  let settingsWatcher: fs.FSWatcher | null = null;
+  try {
+    settingsWatcher = fs.watch(path.dirname(opts.settingsFile), (_event, filename) => {
+      if (filename?.toString() === settingsName) debounce("settings", { type: "settings" });
+    });
+    settingsWatcher.on("error", (e) => console.error("settings watcher error:", e.message));
+  } catch {
+    // no settings folder: nothing to watch, and the page shows no time zones or snippets
+  }
   const keepAlive = setInterval(() => {
     for (const res of clients) res.write(": ping\n\n");
   }, 25_000);
@@ -98,6 +111,16 @@ export function createApp(opts: AppOptions): { handle: http.RequestListener; clo
           return send(200, { ok: true });
         }
         return send(405, { error: "method not allowed" });
+      }
+
+      if (url.pathname === "/api/settings") {
+        if (req.method !== "GET") return send(405, { error: "method not allowed" });
+        try {
+          return send(200, { markdown: await fsp.readFile(opts.settingsFile, "utf8"), exists: true });
+        } catch (e) {
+          if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+          return send(200, { markdown: "", exists: false });
+        }
       }
 
       const m = /^\/api\/day\/([^/]+)$/.exec(url.pathname);
@@ -144,6 +167,7 @@ export function createApp(opts: AppOptions): { handle: http.RequestListener; clo
     handle,
     close: () => {
       watcher.close();
+      settingsWatcher?.close();
       clearInterval(keepAlive);
       for (const t of timers.values()) clearTimeout(t);
       for (const res of clients) res.end();

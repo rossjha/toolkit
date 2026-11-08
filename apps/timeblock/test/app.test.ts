@@ -9,20 +9,23 @@ import { createApp } from "../src/server/app.ts";
 import { DEFAULT_CATEGORIES, formatCategories } from "../src/shared/categories.ts";
 import { localToday } from "../src/shared/day.ts";
 
-async function withApp(fn: (base: string, daysDir: string) => Promise<void>): Promise<void> {
+async function withApp(fn: (base: string, daysDir: string, settingsFile: string) => Promise<void>): Promise<void> {
   const daysDir = fs.mkdtempSync(path.join(os.tmpdir(), "timeblock-days-"));
   const publicDir = fs.mkdtempSync(path.join(os.tmpdir(), "timeblock-public-"));
-  const app = createApp({ daysDir, publicDir });
+  const configDir = fs.mkdtempSync(path.join(os.tmpdir(), "timeblock-config-"));
+  const settingsFile = path.join(configDir, "timeblock.md");
+  const app = createApp({ daysDir, publicDir, settingsFile });
   const server = http.createServer(app.handle);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   try {
-    await fn(`http://127.0.0.1:${(server.address() as AddressInfo).port}`, daysDir);
+    await fn(`http://127.0.0.1:${(server.address() as AddressInfo).port}`, daysDir, settingsFile);
   } finally {
     app.close();
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
     fs.rmSync(daysDir, { recursive: true, force: true });
     fs.rmSync(publicDir, { recursive: true, force: true });
+    fs.rmSync(configDir, { recursive: true, force: true });
   }
 }
 
@@ -76,4 +79,30 @@ test("without ?today the server's own date decides, as before", () =>
     assert.ok(fs.existsSync(path.join(daysDir, `${localToday()}.md`)));
     const other = (await (await fetch(`${base}/api/day/2031-01-03`)).json()) as { exists: boolean };
     assert.equal(other.exists, false);
+  }));
+
+test("GET /api/settings says when there's no settings file, and creates nothing", () =>
+  withApp(async (base, _daysDir, settingsFile) => {
+    const body = await (await fetch(`${base}/api/settings`)).json();
+    assert.deepEqual(body, { markdown: "", exists: false });
+    assert.equal(fs.existsSync(settingsFile), false);
+  }));
+
+test("GET /api/settings returns the file, and the settings can't be written", () =>
+  withApp(async (base, _daysDir, settingsFile) => {
+    fs.writeFileSync(settingsFile, "## Time zones\n- UK: Europe/London\n");
+    assert.deepEqual(await (await fetch(`${base}/api/settings`)).json(), { markdown: "## Time zones\n- UK: Europe/London\n", exists: true });
+    assert.equal((await fetch(`${base}/api/settings`, { method: "PUT", body: "x" })).status, 405);
+  }));
+
+test("a change to the settings file is pushed to open pages", () =>
+  withApp(async (base, _daysDir, settingsFile) => {
+    const ac = new AbortController();
+    const res = await fetch(`${base}/api/events`, { signal: ac.signal });
+    const reader = res.body!.getReader();
+    await reader.read(); // ": connected"
+    fs.writeFileSync(settingsFile, "## Snippets\n### Hi\nHello\n");
+    let seen = "";
+    while (!seen.includes('"settings"')) seen += new TextDecoder().decode((await reader.read()).value);
+    ac.abort();
   }));
