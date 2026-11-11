@@ -101,6 +101,10 @@ button { background: none; border: 0; padding: 0; }
 .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
 .dump { display: block; width: 100%; margin: 0; white-space: pre-wrap; min-height: 10rem; padding: 0.4rem 0.5rem; border: 1px solid transparent; border-radius: var(--r-sm); font: inherit; line-height: 1.5; }
 .dump-view { cursor: text; }
+/* Long pasted URLs wrap instead of running out of the card. */
+.dump, .priority-text { overflow-wrap: anywhere; }
+.text-link { color: var(--accent); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent); text-underline-offset: 2px; cursor: pointer; }
+.text-link:hover { text-decoration-color: var(--accent); }
 .dump-view:hover { border-color: var(--border); }
 .dump-view.empty { color: var(--dim); }
 .dump-edit { resize: none; overflow: hidden; outline: none; background-color: var(--surface-2); border-color: var(--accent); }

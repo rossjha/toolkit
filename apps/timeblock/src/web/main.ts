@@ -14,6 +14,7 @@ import {
 import { deleteBlock, locateBlock, pushBlocks, retimeBlock, snapshotBlock, upsertBlock, type Snapshot } from "../shared/schedule.ts";
 import { DEFAULT_CATEGORIES, categoryColor, findCategory, parseCategories, type Category } from "../shared/categories.ts";
 import { indentLines } from "../shared/indent.ts";
+import { textParts } from "../shared/links.ts";
 import { parseSettings, type Snippet, type Zone } from "../shared/settings.ts";
 import { checkTimePanel } from "./check-time.ts";
 import { openBlockDialog } from "./dialog.ts";
@@ -435,6 +436,14 @@ function prioritiesEditor(): HTMLElement {
   return ta;
 }
 
+/** Text with its links made clickable: `[thread](url)` shows as "thread". A click on a link only opens the link. */
+function withLinks(text: string): (Node | string)[] {
+  const stop = (e: Event): void => e.stopPropagation();
+  return textParts(text).map((p) =>
+    "url" in p ? h("a", { class: "text-link", href: p.url, target: "_blank", rel: "noopener noreferrer", title: p.url, onclick: stop, onkeydown: stop }, p.label) : p.text,
+  );
+}
+
 function priorities(day: Day): HTMLElement {
   const editing = state.prioritiesDraft !== null;
   return h(
@@ -467,7 +476,7 @@ function priorities(day: Day): HTMLElement {
                     render();
                   },
                 }),
-                h("span", {}, p.text),
+                h("span", { class: "priority-text" }, ...withLinks(p.text)),
                 p.total > 0 && h("span", { class: "text-muted hint count" }, `${p.doneCount}/${p.total}`),
               ),
             ),
@@ -548,7 +557,7 @@ function brainDump(day: Day): HTMLElement {
           }
         },
       },
-      day.brainDump || "Click to jot something down…",
+      ...(day.brainDump ? withLinks(day.brainDump) : ["Click to jot something down…"]),
     );
   }
   return h(

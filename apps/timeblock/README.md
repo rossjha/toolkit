@@ -21,6 +21,7 @@ Without Docker (Node 22.18 or newer): `npm install`, then `npm start`, which bui
 ## Using it
 
 - **Priorities** on the left: tick them off in the browser. The pencil beside the heading edits them inline: Tab / Shift+Tab indent a task under the one above, it autosaves, Esc finishes. A parent shows `done/total` of its sub-tasks.
+- **Links**: in priorities, the brain dump and block titles, `[thread](https://…)` shows as just "thread" and opens the link. A pasted bare URL is clickable too and wraps rather than running off the card. In a block title the link becomes the block's click target, like a Meet link.
 - **Brain dump**: click it (or press `b`) and type. It saves as you go; Esc or clicking away finishes. Only that section of the file changes.
 - **Schedule** on the right: each category has its own theme colour and is solid or hatched (by default meetings are solid, your own time hatched). Clashes sit side by side. The red line is now; past blocks fade.
 - **Click a meeting** to open its Meet link (Google Meet's home page if the line has no link).

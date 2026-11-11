@@ -155,3 +155,9 @@ test("setPriorities replaces only priorities", () => {
   const added = setPriorities(bare, "- [ ] a");
   assert.equal(added, "---\ndate: 2026-10-29\n---\n\n## Priorities\n\n- [ ] a\n\n## Schedule\n\n- 09:00-10:00 X\n");
 });
+
+test("a markdown link in a block title keeps its label and becomes the block's url", () => {
+  const day = parseDay("2026-10-29", "## Schedule\n- 14:00-15:00 [meeting] Incident review [thread](https://example.slack.com/archives/C1/p2)\n");
+  assert.equal(day.blocks[0].title, "Incident review thread");
+  assert.equal(day.blocks[0].url, "https://example.slack.com/archives/C1/p2");
+});

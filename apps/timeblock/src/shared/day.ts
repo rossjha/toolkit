@@ -102,6 +102,7 @@ const URL_RE = /https?:\/\/\S+/;
 const TASK_RE = /^[-*]\s+\[( |x|X)\]\s?(.*)$/;
 const GCAL_RE = /<!--\s*gcal:([^\s>]+)\s*-->\s*$/;
 const LINK_RE = /^\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)$/;
+const MD_LINK_RE = /\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/;
 const BARE_URL_RE = /^https?:\/\/\S+$/;
 
 /** Leading whitespace width; a tab counts as 2. */
@@ -201,8 +202,11 @@ export function parseDay(date: string, text: string): Day {
       // and nor is a link: it becomes the block's click target.
       const gcal = GCAL_RE.exec(b[4])?.[1];
       let title = b[4].replace(/\s*<!--.*?-->\s*$/, "");
-      const url = URL_RE.exec(title)?.[0];
-      if (url) title = title.replace(url, "").replace(/\s{2,}/g, " ");
+      // A markdown link keeps its label in the title ("Incident review [thread](https://…)" reads "Incident review thread").
+      const md = MD_LINK_RE.exec(title);
+      const url = md ? md[2] : URL_RE.exec(title)?.[0];
+      if (md) title = title.replace(md[0], md[1]);
+      else if (url) title = title.replace(url, "").replace(/\s{2,}/g, " ");
       current = { start, end, category, title: title.trim(), ...(url && { url }), ...(gcal && { gcal }), children: [], line: i };
       day.blocks.push(current);
     } else if (section === "braindump") {
